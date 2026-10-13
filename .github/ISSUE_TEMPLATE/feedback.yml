@@ -1,0 +1,44 @@
+name: Guidance feedback
+description: Share general feedback, feedback on a question, or feedback on a recommendation.
+title: "[Feedback] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Feedback is submitted as a **public GitHub issue**. Review the supplied context and remove anything you do not want to share. Do not include personal, customer, or confidential information.
+
+        You can edit every prepopulated field before submitting. Nothing is submitted automatically.
+  - type: dropdown
+    id: area
+    attributes:
+      label: What is your feedback about?
+      options:
+        - General feedback
+        - A specific step
+        - Recommendation
+    validations:
+      required: true
+  - type: input
+    id: step
+    attributes:
+      label: Which step?
+      description: For feedback on a specific step, enter the question heading.
+      placeholder: What does the agent need to do?
+  - type: textarea
+    id: feedback
+    attributes:
+      label: What seems wrong or unclear?
+      description: Describe the issue or share general feedback about the guidance.
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: What would you change?
+      description: If relevant, describe the answer or recommendation you expected and include supporting documentation.
+  - type: textarea
+    id: context
+    attributes:
+      label: Context from the guide
+      description: Step and result links fill this with your current selections, not a history of clicks. Review, edit, or remove it before submitting.
+      placeholder: Optional for general feedback.

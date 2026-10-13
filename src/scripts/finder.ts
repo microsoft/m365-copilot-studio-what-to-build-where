@@ -3,6 +3,7 @@ import { recommend } from '../lib/recommend';
 import { type Candidate } from '../lib/candidates';
 import { getFlow } from '../lib/flow';
 import { withBase } from '../lib/url';
+import { feedbackUrl } from '../lib/feedback';
 
 function element<T extends HTMLElement>(selector: string): T {
   const node = document.querySelector<T>(selector);
@@ -30,6 +31,14 @@ const sidebarTabs = [element<HTMLButtonElement>('#shortlist-tab'), element<HTMLB
 const sidebarPanels = [element('#platform-shortlist'), element('#requirements')];
 let answers: Answers = {};
 let step = 0;
+
+function updateFeedback(flow: ReturnType<typeof getFlow>, complete: boolean) {
+  const link = element<HTMLAnchorElement>('#context-feedback-link');
+  link.textContent = complete ? 'Give feedback on this recommendation' : 'Give feedback on this step';
+  link.href = feedbackUrl(complete
+    ? { kind: 'result', answers: flow.answers }
+    : { kind: 'step', answers: flow.answers, questionId: flow.questions[step].id });
+}
 
 function selectSidebarTab(index: number, focus = false) {
   sidebarTabs.forEach((tab, position) => {
@@ -262,6 +271,7 @@ function render(focus = true) {
     next.textContent = !flow.shortlist.active.length ? 'Review requirements' :
       step === questions.length - 1 ? 'See my recommendation' : 'Continue';
   }
+  updateFeedback(flow, complete);
   if (focus) focusHeading();
 }
 
@@ -279,6 +289,7 @@ form.addEventListener('change', () => {
   error.hidden = true;
   renderSummary(flow);
   renderShortlist(flow);
+  updateFeedback(flow, false);
   const count = flow.questions.length;
   element('#step-label').textContent = `QUESTION ${step + 1} OF ${count}`;
   const percentage = Math.round(step / count * 100);

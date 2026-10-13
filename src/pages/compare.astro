@@ -38,7 +38,8 @@ import { withBase } from '../lib/url';
       <p>Within this guidance, Agent Builder, Cowork, and Microsoft 365 Agents Toolkit are evaluated for employee scenarios in Microsoft 365. Customer-facing, voice, and custom-client scenarios for these options require separate assessment. For Microsoft 365 Agents SDK, the development team supplies and validates the models, orchestration, and application-specific capabilities.</p>
       <p>Assess website embedding alongside runtime ownership requirements, fixed-rule steps alongside workflow and channel requirements, and prompted tasks alongside the intended job and audience. Each of these factors contributes to platform selection.</p>
       <h3>Data handling</h3>
-      <p>Selections remain in browser-tab memory and are cleared when the page is refreshed. The guide operates without user accounts or analytics and sends no selections to a server. The hosting service may retain standard page-access logs.</p>
+      <p>Selections remain in browser-tab memory and are cleared when the page is refreshed. The guide operates without user accounts or analytics. The hosting service may retain standard page-access logs.</p>
+      <p>Opening a step or recommendation feedback link sends your current selections to GitHub through URL parameters to fill an editable issue form. Recommendation feedback also includes the result and items to validate. The URL may remain in browser history. General feedback includes no selections. A GitHub account is required to submit feedback; submitted issues are public. Review or remove context before submitting, and do not include confidential information.</p>
       <a class="button button-primary" href={withBase()}>Assess a use case</a>
     </section>
   </div>

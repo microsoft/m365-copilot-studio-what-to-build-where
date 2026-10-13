@@ -18,7 +18,27 @@ npm run dev
 
 Open `http://localhost:4321/`. Answers stay in tab memory and reset on refresh.
 The static comparison page is usable without JavaScript. There are no AI calls,
-accounts, analytics, answer submission, or remote font requests.
+accounts, analytics, automatic answer submission, or remote font requests.
+
+## Feedback
+
+**Submit feedback** in the header opens the general GitHub issue form. Each
+question and the result also provide a contextual feedback link. Comparison
+remains available in the footer.
+
+`src/lib/feedback.ts` builds links to `.github/ISSUE_TEMPLATE/feedback.yml` using
+GitHub issue-form URL parameters keyed by field ID. Contextual links contain the
+current normalized selections and question, or the result with its platform and
+items to validate. Hidden/stale selections are omitted; a displayed single-option
+default is identified as unconfirmed until Continue records it. This is a snapshot
+of current requirements, not a click history. General feedback sends no answers.
+
+Links open a new tab so the assessment remains available. Opening a contextual
+link sends its URL parameters to GitHub and may leave them in browser history.
+Visitors can edit or remove the context before submitting; nothing is submitted
+automatically. Submission requires a GitHub account and creates a public issue.
+The issue form must be published on the repository's default branch before these
+links work on GitHub. No backend, access token, or new dependency is required.
 
 ## Checks
 

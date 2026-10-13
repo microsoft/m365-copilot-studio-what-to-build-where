@@ -82,3 +82,11 @@ app session with a local Git repository.
   override when the supported Node baseline is raised.
 - Answers are in memory only. Fonts and application assets are local to the site;
   no analytics, storage of answers, or external API calls are part of this app.
+- Feedback uses GitHub issue-form URL parameters matching the field IDs in
+  `.github/ISSUE_TEMPLATE/feedback.yml`. General feedback includes no selections.
+  Contextual links share normalized current answers, not click history, only when
+  opened. Label unconfirmed single-option defaults explicitly. Warn before leaving
+  that GitHub receives the selections, an account is required, and issues are public.
+  Keep the form and links in the same deployment; the form must exist on default branch.
+  User-directed: feedback must open in a new tab, preserving the assessment.
+  Do not switch to same-tab navigation to work around embedded-preview behavior.

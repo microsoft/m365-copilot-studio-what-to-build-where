@@ -474,6 +474,9 @@ test('comparison works without JS, base-aware assets and links load', async ({ b
   const failed: string[] = [];
   page.on('response', response => { if (response.status() >= 400) failed.push(response.url()); });
   await page.goto(baseURL!);
+  const feedback = page.getByRole('link', { name: 'Submit feedback', exact: true });
+  await expect(feedback).toBeVisible();
+  expect(new URL((await feedback.getAttribute('href'))!).searchParams.get('area')).toBe('General feedback');
   await expect(page.locator('noscript .notice')).toBeVisible();
   await expect(page.locator('noscript .notice')).toContainText('The interactive guide needs JavaScript.');
   await page.getByRole('link', { name: 'compare all six options' }).click();
@@ -485,6 +488,89 @@ test('comparison works without JS, base-aware assets and links load', async ({ b
   expect(page.url()).toBe(baseURL);
   expect(failed).toEqual([]);
   await context.close();
+});
+
+test('feedback entry points prepopulate current selections without submitting or losing the guide', async ({ page, context }, info) => {
+  const githubRequests: string[] = [];
+  context.on('request', request => {
+    if (new URL(request.url()).hostname === 'github.com') githubRequests.push(request.url());
+  });
+  await page.goto('');
+  const general = page.getByRole('link', { name: 'Submit feedback', exact: true });
+  const contextual = page.locator('#context-feedback-link');
+  await expect(page.locator('#header-feedback-notice')).toContainText('Public GitHub issue');
+  await expect(page.locator('#context-feedback-notice')).toContainText('sends your current selections to GitHub');
+  await expect(general).toHaveAttribute('target', '_blank');
+  await expect(contextual).toHaveAttribute('target', '_blank');
+  expect(new URL((await general.getAttribute('href'))!).searchParams.has('context')).toBe(false);
+  await expect(page.locator('.site-footer').getByRole('link', { name: 'Compare options' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Compare options' })).toHaveCount(0);
+  await page.locator('input[value="actions"]').check();
+  await page.locator('input[value="reasoning"]').check();
+  let url = new URL((await contextual.getAttribute('href'))!);
+  expect(url.searchParams.get('context')).toContain('Take action in business systems; Work through a complex business task');
+  expect(url.searchParams.get('step')).toBe('What does the agent need to do?');
+  await page.locator('#continue').click();
+  url = new URL((await contextual.getAttribute('href'))!);
+  expect(url.searchParams.get('step')).toBe('Who guides the work?');
+  expect(url.searchParams.get('context')).toContain('Current step has no selection.');
+  await page.locator('#back').click();
+  await page.locator('input[value="reasoning"]').uncheck();
+  expect(new URL((await contextual.getAttribute('href'))!).searchParams.get('context')).not.toContain('Work through a complex business task');
+  await page.screenshot({ path: info.outputPath('step-feedback.png'), fullPage: true });
+
+  await journey(page, { job: ['actions'], channels: ['m365', 'web'] });
+  await expect(contextual).toHaveText('Give feedback on this recommendation');
+  url = new URL((await contextual.getAttribute('href'))!);
+  expect(url.searchParams.get('area')).toBe('Recommendation');
+  expect(url.searchParams.has('step')).toBe(false);
+  expect(url.searchParams.get('context')).toContain('Result: Needs review');
+  expect(url.searchParams.get('context')).toContain('Copilot Studio · GitHub Copilot Harness');
+  expect(url.searchParams.get('context')).toContain('Requirements and items to validate:');
+  expect(githubRequests).toEqual([]);
+  await page.screenshot({ path: info.outputPath('result-feedback.png'), fullPage: true });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+
+  await page.locator('#restart').click();
+  await expect(contextual).toHaveText('Give feedback on this step');
+  url = new URL((await contextual.getAttribute('href'))!);
+  expect(url.searchParams.get('context')).toContain('No answers recorded.');
+  expect(url.searchParams.get('context')).not.toContain('Take action in business systems');
+  expect(new URL((await general.getAttribute('href'))!).searchParams.has('context')).toBe(false);
+
+  await context.route('https://github.com/**', route => route.fulfill({ contentType: 'text/html', body: '<title>Issue draft</title>' }));
+  const popupPromise = page.waitForEvent('popup');
+  await contextual.click();
+  const popup = await popupPromise;
+  await popup.waitForLoadState();
+  expect(popup.url()).toBe(url.href);
+  await expect(popup).toHaveTitle('Issue draft');
+  await expect(page.locator('#question-form')).toBeVisible();
+  await popup.close();
+});
+
+test('step feedback distinguishes preselection and removes incompatible channels after edits', async ({ page }) => {
+  await page.goto('');
+  for (const value of ['knowledge', 'user']) {
+    await page.locator(`input[value="${value}"]`).check();
+    await page.locator('#continue').click();
+  }
+  const link = page.locator('#context-feedback-link');
+  let context = new URL((await link.getAttribute('href'))!).searchParams.get('context')!;
+  expect(context).toContain('Displayed selection (not yet confirmed): Employees');
+  expect(context).not.toContain('- Audience:');
+  await page.locator('#continue').click();
+  context = new URL((await link.getAttribute('href'))!).searchParams.get('context')!;
+  expect(context).toContain('- Audience: Employees');
+  expect(context).not.toContain('not yet confirmed');
+  await page.locator('#restart').click();
+  await journey(page, { job: ['actions'], channels: ['m365', 'web'] });
+  await showRequirements(page);
+  await page.getByRole('button', { name: /^Edit Audience:/ }).click();
+  await page.locator('input[value="both"]').check();
+  context = new URL((await link.getAttribute('href'))!).searchParams.get('context')!;
+  expect(context).toContain('A website or custom app');
+  expect(context).not.toContain('Microsoft 365 workspace');
 });
 
 test('theme URL accepts known values only and reduced motion disables transitions', async ({ page }) => {

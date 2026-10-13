@@ -6,6 +6,7 @@ import '@fontsource/dm-sans/700.css';
 import '@fontsource/jetbrains-mono/400.css';
 import '../styles/global.css';
 import { withBase } from '../lib/url';
+import { feedbackUrl } from '../lib/feedback';
 interface Props { title?: string; description?: string }
 const { title = 'Agent platform selection for Microsoft 365 and Copilot Studio', description = 'Compare platforms across Microsoft 365 and Microsoft Copilot Studio by scenario, audience, and organizational control, with prerequisites to review before development.' } = Astro.props;
 ---
@@ -36,7 +37,10 @@ const { title = 'Agent platform selection for Microsoft 365 and Copilot Studio',
           <span>Agent platform guidance</span>
         </a>
         <nav aria-label="Main navigation">
-          <a href={withBase('compare/')}>Compare options</a>
+          <div class="header-feedback">
+            <a href={feedbackUrl()} target="_blank" rel="noopener noreferrer" aria-describedby="header-feedback-notice">Submit feedback</a>
+            <span id="header-feedback-notice">Public GitHub issue<br />Account required · New tab</span>
+          </div>
           <button class="theme-toggle" id="theme-toggle" aria-label="Switch color theme" title="Switch color theme" type="button">
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.5 13A8.5 8.5 0 0 1 11 3.5 8.5 8.5 0 1 0 20.5 13Z"/></svg>
           </button>
@@ -46,6 +50,7 @@ const { title = 'Agent platform selection for Microsoft 365 and Copilot Studio',
     <main id="main"><slot /></main>
     <footer class="site-footer">
       <span>Platform selection and development prerequisites</span>
+      <a href={withBase('compare/')}>Compare options</a>
       <span>Draft guidance · Confirm current product capabilities</span>
     </footer>
     <script>

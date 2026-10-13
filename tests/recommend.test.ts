@@ -4,6 +4,7 @@ import { hasMultipleChannels, products, questions, type Answers } from '../src/d
 import { getFlow } from '../src/lib/flow';
 import { assessCandidates } from '../src/lib/candidates';
 import { recommend } from '../src/lib/recommend';
+import { feedbackUrl } from '../src/lib/feedback';
 import { deploymentConfig } from '../scripts/deployment-config.mjs';
 
 const base: Answers = {
@@ -339,6 +340,9 @@ test('exhaustive combinations never mark blocked or unconfirmed must-haves as re
       channels: channels.filter((_, index) => mask & (1 << index)),
     };
     const result = recommend(answers);
+    if (result.status !== 'incomplete') {
+      assert.ok(feedbackUrl({ kind: 'result', answers }).length < 6000, 'Feedback URLs must remain compact without truncating context.');
+    }
     const incompatibleAudience = job.includes('knowledge') && audience !== 'employees';
     const missingChannel = !incompatibleAudience && audience !== 'employees' &&
       answers.channels?.length === 1 && answers.channels[0] === 'm365';
