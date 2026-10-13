@@ -90,3 +90,7 @@ app session with a local Git repository.
   Keep the form and links in the same deployment; the form must exist on default branch.
   User-directed: feedback must open in a new tab, preserving the assessment.
   Do not switch to same-tab navigation to work around embedded-preview behavior.
+  Observed feedback issue: title and step prefilled, but category dropdown did not.
+  GitHub community discussion 44983 documents dropdown-prefill limitations.
+  Use text inputs/textareas for prefilled fields; show context before feedback
+  questions so the supplied selections are easy to find. Revisit if GitHub adds support.

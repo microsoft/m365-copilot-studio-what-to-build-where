@@ -8,14 +8,12 @@ body:
         Feedback is submitted as a **public GitHub issue**. Review the supplied context and remove anything you do not want to share. Do not include personal, customer, or confidential information.
 
         You can edit every prepopulated field before submitting. Nothing is submitted automatically.
-  - type: dropdown
+  - type: input
     id: area
     attributes:
       label: What is your feedback about?
-      options:
-        - General feedback
-        - A specific step
-        - Recommendation
+      description: "Choose one: General feedback, A specific step, or Recommendation. Links from the guide fill this in for you."
+      placeholder: General feedback
     validations:
       required: true
   - type: input
@@ -24,6 +22,12 @@ body:
       label: Which step?
       description: For feedback on a specific step, enter the question heading.
       placeholder: What does the agent need to do?
+  - type: textarea
+    id: context
+    attributes:
+      label: Context from the guide
+      description: Step and result links fill this with your current selections, not a history of clicks. Review, edit, or remove it before submitting.
+      placeholder: Optional for general feedback.
   - type: textarea
     id: feedback
     attributes:
@@ -36,9 +40,3 @@ body:
     attributes:
       label: What would you change?
       description: If relevant, describe the answer or recommendation you expected and include supporting documentation.
-  - type: textarea
-    id: context
-    attributes:
-      label: Context from the guide
-      description: Step and result links fill this with your current selections, not a history of clicks. Review, edit, or remove it before submitting.
-      placeholder: Optional for general feedback.

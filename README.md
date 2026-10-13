@@ -32,6 +32,9 @@ current normalized selections and question, or the result with its platform and
 items to validate. Hidden/stale selections are omitted; a displayed single-option
 default is identified as unconfirmed until Continue records it. This is a snapshot
 of current requirements, not a click history. General feedback sends no answers.
+The category uses a text input because GitHub's dropdown fields do not support
+these URL prefills. The editable context appears before the questions asking for
+feedback; those questions remain blank for the visitor to complete.
 
 Links open a new tab so the assessment remains available. Opening a contextual
 link sends its URL parameters to GitHub and may leave them in browser history.

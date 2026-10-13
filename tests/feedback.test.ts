@@ -25,8 +25,11 @@ test('feedback links use the repository form and matching field IDs', () => {
     for (const key of url.searchParams.keys()) {
       if (key !== 'template' && key !== 'title') assert.ok(template.includes(`id: ${key}\n`));
     }
-    assert.ok(template.includes(`- ${url.searchParams.get('area')}\n`));
+    assert.ok(template.includes(url.searchParams.get('area')!));
   }
+  assert.match(template, /- type: input\n\s+id: area\n/);
+  assert.match(template, /- type: textarea\n\s+id: context\n/);
+  assert.ok(template.indexOf('id: context\n') < template.indexOf('id: feedback\n'));
 });
 
 test('step feedback includes combined selections and removes stale hidden answers', () => {
