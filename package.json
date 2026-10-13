@@ -1,0 +1,34 @@
+{
+  "name": "agent-where-to-build",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "description": "An interactive guide to what to build where, based on draft CAT agent-platform guidance.",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "check": "astro check",
+    "test": "tsx --test tests/*.test.ts",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "astro": "7.2.5"
+  },
+  "overrides": {
+    "unifont": "0.7.4"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@fontsource/dm-sans": "^5.2.8",
+    "@fontsource/jetbrains-mono": "^5.2.8",
+    "@playwright/test": "1.58.2",
+    "@types/node": "^22.19.0",
+    "tsx": "^4.23.15",
+    "typescript": "~5.9.3"
+  }
+}

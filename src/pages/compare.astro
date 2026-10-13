@@ -1,0 +1,44 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { products } from '../data/guidance';
+import { withBase } from '../lib/url';
+---
+<Layout title="Compare agent platforms">
+  <div class="page-shell comparison-page">
+    <a class="back-link" href={withBase()}>Back to the guide</a>
+    <section class="intro">
+      <h1>Compare agent platforms</h1>
+      <p>Review six options across Microsoft 365 and Microsoft Copilot Studio, including the GitHub Copilot Harness and Standard Harness. Compare their intended scenarios, implementation responsibilities, limitations, and prerequisites.</p>
+    </section>
+    <div class="guidance-notice"><span class="draft-badge">Draft guidance</span><p>These descriptions reflect the supplied decision table. Confirm current platform capabilities before development.</p></div>
+    <div class="comparison-list">
+      {products.map(product => (
+        <article class="comparison-item" id={product.id}>
+          <div class="product-heading"><span class="utility">{product.category}</span><h2>{product.name}</h2><p>{product.summary}</p></div>
+          <div><h3>Intended scenarios</h3><p>{product.goodFor}</p><h3>Limitations and responsibilities</h3><ul>{product.watch.map(item => <li>{item}</li>)}</ul><div class="review-note"><h3>Items to validate</h3><ul>{product.review.map(item => <li>{item}</li>)}</ul></div></div>
+        </article>
+      ))}
+    </div>
+    <section id="about" class="methodology">
+      <span class="utility">About this guidance</span>
+      <h2>How recommendations are determined</h2>
+      <p>The guide applies predefined rules based on the draft decision guidance. Each result identifies the factors supporting the platform selection and the requirements to validate against current product documentation.</p>
+      <h3>Decision criteria and priority</h3>
+      <p>The rules first assess ownership of models and orchestration, which favors Microsoft 365 Agents SDK. They then consider voice, live-human handover, and extension of a Copilot Studio agent using the Standard Harness, which favor that harness. Organization-owned autonomy favors the GitHub Copilot Harness. Microsoft 365 actions using your own APIs or MCP servers favor Microsoft 365 Agents Toolkit. Subsequent criteria cover organizational control, audience, channels, personal autonomy, and the selected tasks. Business actions or complex reasoning take priority over knowledge-only work.</p>
+      <p>Select all the jobs the agent must perform, then identify who guides the work. Each selection adds requirements to the platform assessment. Options with incompatible requirements move to the “Excluded” section with an explanation. Options with unconfirmed capabilities remain under “Requires confirmation.” Unanswered questions leave the shortlist unchanged.</p>
+      <p>Selecting multiple delivery options establishes a multi-channel requirement. Live-human handover is assessed separately as a service capability.</p>
+      <p>The recommendation and alternatives are selected from the remaining platforms using the criteria above. Conflicting requirements produce a review result with the answers to reconsider. If several options remain without a distinguishing preference, the result presents them for assessment. You can edit an answer at any point to update the shortlist.</p>
+      <h3>Relevant follow-up questions</h3>
+      <p>Who guides the work is assessed separately from its capabilities, as the second question. Audience is third. The Microsoft 365 knowledge and guidance job is scoped to employees, so selecting it hides both customer audience choices, including when combined with other jobs. The step remains visible with Employees preselected and an explanation; Continue confirms the audience. Adding that job clears incompatible audience answers; removing it restores the choices.</p>
+      <p>Subsequent questions focus on criteria that affect the remaining platforms or identify prerequisites. For example, the guide omits the Toolkit integration question once Toolkit is excluded. Channel and autonomy requirements still need assessment when only one platform remains.</p>
+      <h3>Capability validation</h3>
+      <p>The draft guidance identifies items requiring confirmation, including voice and channel support in the GitHub Copilot Harness and integration details for Microsoft 365 Agents Toolkit. Validate these items for the intended environment, together with roadmap statements, costs, model availability, application lifecycle management (ALM), telemetry, and scheduling capabilities.</p>
+      <h3>Scope and assumptions</h3>
+      <p>Within this guidance, Agent Builder, Cowork, and Microsoft 365 Agents Toolkit are evaluated for employee scenarios in Microsoft 365. Customer-facing, voice, and custom-client scenarios for these options require separate assessment. For Microsoft 365 Agents SDK, the development team supplies and validates the models, orchestration, and application-specific capabilities.</p>
+      <p>Assess website embedding alongside runtime ownership requirements, fixed-rule steps alongside workflow and channel requirements, and prompted tasks alongside the intended job and audience. Each of these factors contributes to platform selection.</p>
+      <h3>Data handling</h3>
+      <p>Selections remain in browser-tab memory and are cleared when the page is refreshed. The guide operates without user accounts or analytics and sends no selections to a server. The hosting service may retain standard page-access logs.</p>
+      <a class="button button-primary" href={withBase()}>Assess a use case</a>
+    </section>
+  </div>
+</Layout>

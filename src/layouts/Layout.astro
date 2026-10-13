@@ -1,0 +1,69 @@
+---
+import '@fontsource/dm-sans/400.css';
+import '@fontsource/dm-sans/500.css';
+import '@fontsource/dm-sans/600.css';
+import '@fontsource/dm-sans/700.css';
+import '@fontsource/jetbrains-mono/400.css';
+import '../styles/global.css';
+import { withBase } from '../lib/url';
+interface Props { title?: string; description?: string }
+const { title = 'Agent platform selection for Microsoft 365 and Copilot Studio', description = 'Compare platforms across Microsoft 365 and Microsoft Copilot Studio by scenario, audience, and organizational control, with prerequisites to review before development.' } = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#fafafa" />
+    <title>{title} (Draft) | Agent platform guidance</title>
+    <link rel="icon" type="image/svg+xml" href={withBase('favicon.svg')} />
+    <script is:inline>
+      (() => {
+        const param = new URLSearchParams(location.search).get('scoutTheme');
+        const theme = param === 'light' || param === 'dark' ? param :
+          (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.dataset.theme = theme;
+      })();
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="header-inner">
+        <a href={withBase()} class="brand" aria-label="Agent platform guidance home">
+          <span class="brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 18V6h7m-7 6h12m-5-6 3 0m2 6 4 0M8 18h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="8" cy="18" r="2" fill="currentColor"/><circle cx="14" cy="6" r="2" fill="currentColor"/><circle cx="16" cy="12" r="2" fill="currentColor"/></svg></span>
+          <span>Agent platform guidance</span>
+        </a>
+        <nav aria-label="Main navigation">
+          <a href={withBase('compare/')}>Compare options</a>
+          <button class="theme-toggle" id="theme-toggle" aria-label="Switch color theme" title="Switch color theme" type="button">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.5 13A8.5 8.5 0 0 1 11 3.5 8.5 8.5 0 1 0 20.5 13Z"/></svg>
+          </button>
+        </nav>
+      </div>
+    </header>
+    <main id="main"><slot /></main>
+    <footer class="site-footer">
+      <span>Platform selection and development prerequisites</span>
+      <span>Draft guidance · Confirm current product capabilities</span>
+    </footer>
+    <script>
+      const toggle = document.querySelector<HTMLButtonElement>('#theme-toggle');
+      let overridden = ['light', 'dark'].includes(new URLSearchParams(location.search).get('scoutTheme') ?? '');
+      function updateTheme(theme: string) {
+        document.documentElement.dataset.theme = theme;
+        toggle?.setAttribute('aria-label', `Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`);
+        toggle?.setAttribute('title', `Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`);
+      }
+      updateTheme(document.documentElement.dataset.theme ?? 'light');
+      toggle?.addEventListener('click', () => {
+        overridden = true;
+        updateTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+      });
+      matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+        if (!overridden) updateTheme(event.matches ? 'dark' : 'light');
+      });
+    </script>
+  </body>
+</html>
