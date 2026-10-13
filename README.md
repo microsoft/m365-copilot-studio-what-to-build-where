@@ -25,6 +25,7 @@ accounts, analytics, answer submission, or remote font requests.
 ```sh
 npm run check
 npm test
+npm audit
 npx playwright install chromium
 npm run test:e2e
 BASE_PATH=/m365-copilot-studio-what-to-build-where/ npm run test:e2e

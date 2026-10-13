@@ -71,7 +71,12 @@ app session with a local Git repository.
 - GitHub Pages origin/base come from deployment metadata. Keep root and project
   path builds working. Internal URLs use `src/lib/url.ts`.
 - The Astro scaffolder initially emitted an unavailable Astro version; the app
-  pins the registry-resolvable 7.2.5 release. Check runtime compatibility before upgrades.
+  pins the registry-resolvable 7.2.8 release. Check runtime compatibility before upgrades.
+- Dependency remediation on 13 October 2026: Astro 7.2.8 addresses
+  GHSA-26w7-cxv4-gfx2. The lockfile uses http-cache-semantics 4.3.0, outside the
+  affected range for GHSA-ch52-4w7c-c8xp; that advisory is disputed and does not
+  identify an official patched version. npm audit reported no vulnerabilities
+  after these updates. Recheck advisory metadata rather than assuming permanent clearance.
 - Pin unifont to 0.7.4 (within Astro's supported range): 0.7.5 pulls undici 8,
   which requires Node 22.19+, beyond the local Node 22.17 runtime. Revisit this
   override when the supported Node baseline is raised.
