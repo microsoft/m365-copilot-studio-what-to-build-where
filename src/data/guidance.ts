@@ -129,7 +129,10 @@ export const questions: Question[] = [
     hint: 'Select every required channel and service capability. Confirm channel support and admin approvals, including voice and live-human handover.',
     multiple: true,
     choices: [
-      { id: 'm365', label: 'Microsoft 365 workspace', detail: 'Microsoft 365 Copilot, Teams, or Outlook. Check support for the specific app and interaction.' },
+      {
+        id: 'm365', label: 'Microsoft 365 workspace', detail: 'Microsoft 365 Copilot or Teams. Check support for the specific app and interaction.',
+        when: a => !has(a, 'audience', 'customers') && !has(a, 'audience', 'both'),
+      },
       { id: 'web', label: 'A website or custom app', detail: 'Embed an agent in your own website or client for customers or employees.' },
       { id: 'voice', label: 'Voice', detail: 'People speak to the agent. Confirm speech and any telephone keypad requirements.' },
       { id: 'handover', label: 'Handover to a live human', detail: 'Transfer the conversation to a human service agent when needed.' },

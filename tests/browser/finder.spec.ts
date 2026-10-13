@@ -378,6 +378,37 @@ test('selecting channels directly applies and removes multi-channel requirements
   await expect(page.locator('.recommended-product')).toHaveAttribute('data-product', 'studio');
 });
 
+for (const audience of ['customers', 'both']) {
+  test(`Microsoft 365 workspace is hidden for ${audience} and restored for employees`, async ({ page }) => {
+    await page.goto('');
+    await journey(page, { job: ['actions'], channels: ['m365', 'web'] });
+    await showRequirements(page);
+    await page.getByRole('button', { name: /^Edit Audience:/ }).click();
+    await page.locator(`input[value="${audience}"]`).check();
+    await page.getByRole('button', { name: /^Edit Channels:/ }).click();
+    await expect(page.locator('input[name="channels"]')).toHaveCount(3);
+    await expect(page.locator('input[value="m365"]')).toHaveCount(0);
+    await expect(page.locator('input[value="web"]')).toBeChecked();
+    await expect(page.locator('#answer-summary')).not.toContainText('Microsoft 365 workspace');
+    await page.getByRole('button', { name: /^Edit Audience:/ }).click();
+    await page.locator('input[value="employees"]').check();
+    await page.getByRole('button', { name: /^Edit Channels:/ }).click();
+    await expect(page.locator('input[value="m365"]')).toBeVisible();
+    await expect(page.locator('input[value="m365"]')).not.toBeChecked();
+    await expect(page.locator('#question-content')).not.toContainText('Outlook');
+    await page.locator('input[value="web"]').uncheck();
+    await page.locator('input[value="m365"]').check();
+    await page.getByRole('button', { name: /^Edit Audience:/ }).click();
+    await page.locator(`input[value="${audience}"]`).check();
+    await expect(page.getByRole('button', { name: /^Edit Channels:/ })).toHaveCount(0);
+    await page.getByRole('button', { name: /^Edit Starting point:/ }).click();
+    await page.locator('#continue').click();
+    await expect(page.getByRole('heading', { name: 'Where does it need to work?' })).toBeVisible();
+    await expect(page.locator('input[name="channels"]:checked')).toHaveCount(0);
+    await expect(page.locator('input[value="m365"]')).toHaveCount(0);
+  });
+}
+
 test('unknown voice support remains conditional while handover excludes and restores Studio', async ({ page }) => {
   await page.goto('');
   for (const [name, value] of [['job', 'actions'], ['ownership', 'organization'], ['audience', 'employees'], ['architecture', 'managed']]) {

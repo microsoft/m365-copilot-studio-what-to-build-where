@@ -111,6 +111,11 @@ agents that use Microsoft 365 knowledge sources.
 Multi-channel requirements follow from selecting more than one of Microsoft 365,
 website/custom app, and voice. Live-human handover is a service capability and
 does not count as an additional channel.
+Microsoft 365 workspace is available for employee-only audiences and hidden for
+customer-only or mixed audiences. Changing audience removes an incompatible
+Microsoft 365 channel selection while retaining other selected channels.
+The channel description lists Microsoft 365 Copilot and Teams; Outlook remains
+only in the preserved source drafts, pending confirmation of support.
 
 Follow-up visibility is evaluated from earlier answers and the candidates still
 active at that point. API/MCP integration questions disappear once Toolkit is

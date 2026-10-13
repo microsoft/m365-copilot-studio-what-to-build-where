@@ -42,7 +42,7 @@ test('a custom website does not force SDK, and fixed-rule actions do not force S
 });
 
 test('handles organization direction, customer audience, and both audiences explicitly', () => {
-  for (const override of [{ ownership: ['organization'] }, { job: ['actions'], audience: ['customers'] }, { job: ['actions'], audience: ['both'] }]) {
+  for (const override of [{ ownership: ['organization'] }, { job: ['actions'], audience: ['customers'], channels: ['web'] }, { job: ['actions'], audience: ['both'], channels: ['web'] }]) {
     const result = recommend({ ...base, ...override });
     assert.equal(result.primary?.product.id, 'studio');
     assert.equal(result.status, 'recommended');
@@ -237,7 +237,29 @@ test('employee-directed business actions retain Cowork subject to plugin confirm
   assert.ok(cowork.confirmations.some(note => note.includes('plugins')));
   const organization = recommend({ ...base, job: ['knowledge', 'actions'], ownership: ['organization'] });
   assert.ok(organization.excluded.some(candidate => candidate.product.id === 'cowork'));
-  assert.equal(recommend({ ...base, job: ['actions'], audience: ['customers'] }).primary?.product.id, 'studio');
+  assert.equal(recommend({ ...base, job: ['actions'], audience: ['customers'], channels: ['web'] }).primary?.product.id, 'studio');
+});
+
+test('customer audiences hide Microsoft 365 workspace and prune only that channel', () => {
+  assert.ok(getFlow({}).questions.find(question => question.id === 'channels')?.choices.some(choice => choice.id === 'm365'));
+  for (const audience of ['customers', 'both']) {
+    const employee = getFlow({ ...base, job: ['actions'], channels: ['m365', 'web'] });
+    const changed = getFlow({ ...employee.answers, audience: [audience] });
+    assert.deepEqual(changed.questions.find(question => question.id === 'channels')?.choices.map(choice => choice.id), ['web', 'voice', 'handover']);
+    assert.deepEqual(changed.answers.channels, ['web']);
+    assert.equal(hasMultipleChannels(changed.answers), false);
+    assert.equal(changed.summary.find(answer => answer.id === 'channels')?.value, 'A website or custom app');
+    const empty = getFlow({ ...base, job: ['actions'], audience: [audience] });
+    assert.equal(empty.answers.channels, undefined);
+    assert.equal(empty.answers.integration, undefined);
+    assert.ok(empty.missing.some(question => question.id === 'channels'));
+    assert.equal(recommend(empty.answers).status, 'incomplete');
+    const restored = getFlow({ ...changed.answers, audience: ['employees'] });
+    assert.ok(restored.questions.find(question => question.id === 'channels')?.choices.some(choice => choice.id === 'm365'));
+    assert.deepEqual(restored.answers.channels, ['web']);
+    const sdk = getFlow({ ...changed.answers, architecture: ['own'] });
+    assert.ok(!sdk.questions.find(question => question.id === 'channels')?.choices.some(choice => choice.id === 'm365'));
+  }
 });
 
 test('the Microsoft 365 job restricts audience choices and clears incompatible answers', () => {
@@ -318,11 +340,13 @@ test('exhaustive combinations never mark blocked or unconfirmed must-haves as re
     };
     const result = recommend(answers);
     const incompatibleAudience = job.includes('knowledge') && audience !== 'employees';
+    const missingChannel = !incompatibleAudience && audience !== 'employees' &&
+      answers.channels?.length === 1 && answers.channels[0] === 'm365';
     const conflictingControl = (ownership === 'user' && autonomy === 'organization') ||
       (ownership === 'organization' && autonomy === 'personal');
-    if (incompatibleAudience && !conflictingControl) {
+    if ((incompatibleAudience || missingChannel) && !conflictingControl) {
       assert.equal(result.status, 'incomplete');
-      assert.ok(result.issues.some(issue => issue.includes('Who will use it?')));
+      assert.ok(result.issues.some(issue => issue.includes(incompatibleAudience ? 'Who will use it?' : 'Where does it need to work?')));
     } else {
       assert.notEqual(result.status, 'incomplete');
       assert.ok(result.primary?.reasons.length || result.status === 'review');

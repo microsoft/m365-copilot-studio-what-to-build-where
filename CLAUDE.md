@@ -62,6 +62,10 @@ app session with a local Git repository.
   and disabled when empty. Reset returns to the first question and full shortlist.
 - Derive multi-channel requirements from selected delivery options; do not offer
   a separate multi-channel checkbox. Handover does not count as a channel.
+- Hide Microsoft 365 workspace for customer-only and mixed audiences; keep it
+  for employees. Clear incompatible channel selections when audience changes.
+  Outlook was supplied in the source drafts but is unverified; omit it from UI
+  channel descriptions while preserving the original source documents.
 - Fixed rules do not imply Standard; website embedding does not imply SDK;
   prompt-only does not imply Agent Builder. These are tested distinctions.
 - GitHub Pages origin/base come from deployment metadata. Keep root and project
