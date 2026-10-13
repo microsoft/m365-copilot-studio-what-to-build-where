@@ -1,5 +1,5 @@
-name: Guidance feedback
-description: Share general feedback, feedback on a question, or feedback on a recommendation.
+name: Step or recommendation feedback
+description: Review a particular question or recommendation with the selected answers from the guide.
 title: "[Feedback] "
 body:
   - type: markdown
@@ -9,30 +9,24 @@ body:
 
         You can edit every prepopulated field before submitting. Nothing is submitted automatically.
   - type: input
-    id: area
-    attributes:
-      label: What is your feedback about?
-      description: "Choose one: General feedback, A specific step, or Recommendation. Links from the guide fill this in for you."
-      placeholder: General feedback
-    validations:
-      required: true
-  - type: input
     id: step
     attributes:
-      label: Which step?
-      description: For feedback on a specific step, enter the question heading.
+      label: Which step or result?
+      description: The guide fills in the question heading or "Recommendation" for feedback on the result.
       placeholder: What does the agent need to do?
+    validations:
+      required: true
   - type: textarea
     id: context
     attributes:
       label: Context from the guide
       description: Step and result links fill this with your current selections, not a history of clicks. Review, edit, or remove it before submitting.
-      placeholder: Optional for general feedback.
+      placeholder: If you opened this template directly, describe the answers you selected in the guide.
   - type: textarea
     id: feedback
     attributes:
       label: What seems wrong or unclear?
-      description: Describe the issue or share general feedback about the guidance.
+      description: Describe the issue with this question or recommendation.
     validations:
       required: true
   - type: textarea

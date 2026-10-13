@@ -26,21 +26,26 @@ accounts, analytics, automatic answer submission, or remote font requests.
 question and the result also provide a contextual feedback link. Comparison
 remains available in the footer.
 
-`src/lib/feedback.ts` builds links to `.github/ISSUE_TEMPLATE/feedback.yml` using
-GitHub issue-form URL parameters keyed by field ID. Contextual links contain the
+`src/lib/feedback.ts` selects one of two templates in `.github/ISSUE_TEMPLATE/`:
+`general-feedback.yml` for the header link, with only feedback and suggestion
+questions; `feedback.yml` for step and result links, with the question heading
+(or "Recommendation") and selected-answer context. There is no category question
+or conditional form logic. The contextual filename is retained so existing shared
+step/result URLs continue to populate their fields.
+
+Links use GitHub issue-form URL parameters keyed by field ID. Contextual links contain the
 current normalized selections and question, or the result with its platform and
 items to validate. Hidden/stale selections are omitted; a displayed single-option
 default is identified as unconfirmed until Continue records it. This is a snapshot
 of current requirements, not a click history. General feedback sends no answers.
-The category uses a text input because GitHub's dropdown fields do not support
-these URL prefills. The editable context appears before the questions asking for
+Prefilled fields use text inputs and textareas. The editable context appears before the questions asking for
 feedback; those questions remain blank for the visitor to complete.
 
 Links open a new tab so the assessment remains available. Opening a contextual
 link sends its URL parameters to GitHub and may leave them in browser history.
 Visitors can edit or remove the context before submitting; nothing is submitted
 automatically. Submission requires a GitHub account and creates a public issue.
-The issue form must be published on the repository's default branch before these
+The issue templates must be published on the repository's default branch before these
 links work on GitHub. No backend, access token, or new dependency is required.
 
 ## Checks

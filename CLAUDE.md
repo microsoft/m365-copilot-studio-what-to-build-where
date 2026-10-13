@@ -82,8 +82,12 @@ app session with a local Git repository.
   override when the supported Node baseline is raised.
 - Answers are in memory only. Fonts and application assets are local to the site;
   no analytics, storage of answers, or external API calls are part of this app.
-- Feedback uses GitHub issue-form URL parameters matching the field IDs in
-  `.github/ISSUE_TEMPLATE/feedback.yml`. General feedback includes no selections.
+- Feedback uses two GitHub issue templates: `general-feedback.yml` for general
+  feedback without step/context questions, and `feedback.yml` for step/result
+  feedback with prefilled question heading and selected answers. No category
+  question: the link chooses the template, rather than asking a question that
+  cannot conditionally filter GitHub's form. Preserve the contextual filename
+  and field IDs for existing shared links. General feedback includes no selections.
   Contextual links share normalized current answers, not click history, only when
   opened. Label unconfirmed single-option defaults explicitly. Warn before leaving
   that GitHub receives the selections, an account is required, and issues are public.
@@ -94,3 +98,5 @@ app session with a local Git repository.
   GitHub community discussion 44983 documents dropdown-prefill limitations.
   Use text inputs/textareas for prefilled fields; show context before feedback
   questions so the supplied selections are easy to find. Revisit if GitHub adds support.
+  The user's later screenshot confirmed that the context textarea included both
+  selected jobs, so selected-answer prepopulation works for that step.

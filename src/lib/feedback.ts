@@ -9,11 +9,10 @@ type FeedbackRequest =
 
 export function feedbackUrl(request: FeedbackRequest = { kind: 'general' }): string {
   const url = new URL('https://github.com/microsoft/m365-copilot-studio-what-to-build-where/issues/new');
-  url.searchParams.set('template', 'feedback.yml');
-  const area = request.kind === 'general' ? 'General feedback' :
+  url.searchParams.set('template', request.kind === 'general' ? 'general-feedback.yml' : 'feedback.yml');
+  const subject = request.kind === 'general' ? 'General feedback' :
     request.kind === 'step' ? 'A specific step' : 'Recommendation';
-  url.searchParams.set('area', area);
-  url.searchParams.set('title', `[Feedback] ${area}`);
+  url.searchParams.set('title', `[Feedback] ${subject}`);
   if (request.kind === 'general') return url.href;
 
   const flow = getFlow(request.answers);
@@ -33,6 +32,7 @@ export function feedbackUrl(request: FeedbackRequest = { kind: 'general' }): str
         : 'Current step has no selection.');
     }
   } else {
+    url.searchParams.set('step', 'Recommendation');
     const result = recommend(flow.answers);
     if (result.status === 'incomplete') throw new Error('Result feedback requires a completed assessment.');
     context.push('', `Result: ${result.status === 'review' ? 'Needs review' : 'Recommended starting point'}`,

@@ -1,0 +1,22 @@
+name: General feedback
+description: Share feedback about the guidance as a whole.
+title: "[Feedback] General feedback"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Feedback is submitted as a **public GitHub issue**. Do not include personal, customer, or confidential information.
+
+        For feedback on a particular question or recommendation, use the feedback link on that step or result in the guide to include your selected answers.
+  - type: textarea
+    id: feedback
+    attributes:
+      label: What seems wrong or unclear?
+      description: Share general feedback about the guidance.
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: What would you change?
+      description: Describe your suggestion and include supporting documentation if relevant.

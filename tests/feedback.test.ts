@@ -11,23 +11,30 @@ const answers: Answers = {
   integration: ['connectors'], existing: ['new'],
 };
 
-test('feedback links use the repository form and matching field IDs', () => {
+test('feedback links select general or contextual templates without a category question', () => {
   const general = new URL(feedbackUrl());
   assert.equal(general.origin + general.pathname,
     'https://github.com/microsoft/m365-copilot-studio-what-to-build-where/issues/new');
-  assert.equal(general.searchParams.get('template'), 'feedback.yml');
-  assert.equal(general.searchParams.get('area'), 'General feedback');
+  assert.equal(general.searchParams.get('template'), 'general-feedback.yml');
+  assert.equal(general.searchParams.has('area'), false);
   assert.equal(general.searchParams.has('context'), false);
   assert.equal(general.searchParams.has('step'), false);
   const template = readFileSync(new URL('../.github/ISSUE_TEMPLATE/feedback.yml', import.meta.url), 'utf8');
+  const generalTemplate = readFileSync(new URL('../.github/ISSUE_TEMPLATE/general-feedback.yml', import.meta.url), 'utf8');
+  assert.doesNotMatch(generalTemplate, /id: (area|step|context)\n/);
+  assert.match(generalTemplate, /id: feedback\n/);
+  assert.match(generalTemplate, /id: suggestion\n/);
   for (const kind of ['step', 'result'] as const) {
     const url = new URL(feedbackUrl({ kind, answers, questionId: 'channels' }));
+    assert.equal(url.searchParams.get('template'), 'feedback.yml');
+    assert.equal(url.searchParams.has('area'), false);
+    assert.equal(url.searchParams.get('step'), kind === 'step' ? 'Where does it need to work?' : 'Recommendation');
     for (const key of url.searchParams.keys()) {
       if (key !== 'template' && key !== 'title') assert.ok(template.includes(`id: ${key}\n`));
     }
-    assert.ok(template.includes(url.searchParams.get('area')!));
   }
-  assert.match(template, /- type: input\n\s+id: area\n/);
+  assert.doesNotMatch(template, /id: area\n/);
+  assert.match(template, /- type: input\n\s+id: step\n/);
   assert.match(template, /- type: textarea\n\s+id: context\n/);
   assert.ok(template.indexOf('id: context\n') < template.indexOf('id: feedback\n'));
 });

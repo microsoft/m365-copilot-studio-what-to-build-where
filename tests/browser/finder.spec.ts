@@ -476,7 +476,7 @@ test('comparison works without JS, base-aware assets and links load', async ({ b
   await page.goto(baseURL!);
   const feedback = page.getByRole('link', { name: 'Submit feedback', exact: true });
   await expect(feedback).toBeVisible();
-  expect(new URL((await feedback.getAttribute('href'))!).searchParams.get('area')).toBe('General feedback');
+  expect(new URL((await feedback.getAttribute('href'))!).searchParams.get('template')).toBe('general-feedback.yml');
   await expect(page.locator('noscript .notice')).toBeVisible();
   await expect(page.locator('noscript .notice')).toContainText('The interactive guide needs JavaScript.');
   await page.getByRole('link', { name: 'compare all six options' }).click();
@@ -522,8 +522,9 @@ test('feedback entry points prepopulate current selections without submitting or
   await journey(page, { job: ['actions'], channels: ['m365', 'web'] });
   await expect(contextual).toHaveText('Give feedback on this recommendation');
   url = new URL((await contextual.getAttribute('href'))!);
-  expect(url.searchParams.get('area')).toBe('Recommendation');
-  expect(url.searchParams.has('step')).toBe(false);
+  expect(url.searchParams.get('template')).toBe('feedback.yml');
+  expect(url.searchParams.has('area')).toBe(false);
+  expect(url.searchParams.get('step')).toBe('Recommendation');
   expect(url.searchParams.get('context')).toContain('Result: Needs review');
   expect(url.searchParams.get('context')).toContain('Copilot Studio · GitHub Copilot Harness');
   expect(url.searchParams.get('context')).toContain('Requirements and items to validate:');
