@@ -10,7 +10,7 @@ import { deploymentConfig } from '../scripts/deployment-config.mjs';
 const base: Answers = {
   job: ['knowledge'], audience: ['employees'], ownership: ['user'],
   architecture: ['managed'], channels: ['m365'], autonomy: ['prompted'],
-  integration: ['connectors'], existing: ['new'],
+  integration: ['connectors'],
 };
 
 const jobChoices = ['knowledge', 'actions', 'reasoning'];
@@ -21,7 +21,7 @@ test('covers each of the six outcome candidates with explicit review where neede
   const scenarios = [
     { answers: {}, product: 'builder', status: 'recommended' },
     { answers: { job: ['actions'] }, product: 'studio', status: 'recommended' },
-    { answers: { job: ['actions'], existing: ['standard'] }, product: 'standard', status: 'recommended' },
+    { answers: { job: ['actions'], channels: ['handover'] }, product: 'standard', status: 'recommended' },
     { answers: { job: ['reasoning'] }, product: 'studio', status: 'recommended' },
     { answers: { autonomy: ['personal'] }, product: 'cowork', status: 'review' },
     { answers: { job: ['actions'], integration: ['apis'] }, product: 'toolkit', status: 'review' },
@@ -92,8 +92,8 @@ test('review state preserves unresolved multi-channel, Toolkit, and Standard rea
   for (const override of [
     { channels: ['m365', 'web'] },
     { job: ['actions'], integration: ['apis'] },
-    { job: ['reasoning'], existing: ['standard'] },
-    { existing: ['standard'], ownership: ['organization'], autonomy: ['organization'] },
+    { job: ['reasoning'], channels: ['voice'] },
+    { channels: ['voice'], ownership: ['organization'], autonomy: ['organization'] },
   ]) {
     const result = recommend({ ...base, ...override });
     assert.equal(result.status, 'review');
@@ -104,10 +104,8 @@ test('review state preserves unresolved multi-channel, Toolkit, and Standard rea
 test('normalization removes stale branches and invalid or duplicate values', () => {
   const clean = getFlow(base).answers;
   assert.equal(clean.integration, undefined);
-  assert.equal(clean.existing, undefined);
   const own = getFlow({ ...base, job: ['actions'], architecture: ['own'] }).answers;
   assert.equal(own.integration, undefined);
-  assert.equal(own.existing, undefined);
   assert.deepEqual(getFlow({ ...base, channels: ['m365', 'm365', 'nope'] }).answers.channels, ['m365']);
   assert.deepEqual(getFlow({ ...base, job: ['knowledge', 'actions', 'actions', 'nope'] }).answers.job, ['knowledge', 'actions']);
   assert.equal(getFlow({ ...base, job: ['actions'], audience: ['employees', 'customers'] }).answers.audience, undefined);
@@ -118,6 +116,26 @@ test('normalization removes stale branches and invalid or duplicate values', () 
   assert.equal(recommend({ ...base, job: ['nope'] }).status, 'incomplete');
   assert.equal(recommend({}).status, 'incomplete');
   assert.equal(getFlow({ ...base, channels: ['multi'] }).answers.channels, undefined);
+});
+
+test('new or existing agents are a Standard Harness caveat, not a question or routing input', () => {
+  assert.deepEqual(questions.map(question => question.id),
+    ['job', 'ownership', 'audience', 'architecture', 'channels', 'autonomy', 'integration']);
+  const current = { ...base, job: ['actions'] };
+  for (const existing of ['new', 'standard']) {
+    const retired = { ...current, existing: [existing] };
+    assert.deepEqual(getFlow(retired), getFlow(current));
+    assert.deepEqual(recommend(retired), recommend(current));
+    assert.equal(feedbackUrl({ kind: 'result', answers: retired }), feedbackUrl({ kind: 'result', answers: current }));
+  }
+  const standard = recommend({ ...current, channels: ['voice', 'handover'] }).primary!;
+  assert.equal(standard.product.id, 'standard');
+  assert.ok(standard.product.watch.some(note => note.includes('not the default choice for new agents')));
+  const issueScenario = { ...base, ownership: ['organization'] };
+  const studio = recommend(issueScenario).primary!;
+  assert.equal(getFlow(issueScenario).questions.length, 6);
+  assert.equal(studio.product.id, 'studio');
+  assert.ok(studio.product.watch.some(note => note.includes('extending an existing Copilot Studio agent that uses the Standard Harness')));
 });
 
 test('multi-channel requirements come from selected channels, excluding handover', () => {
@@ -142,9 +160,9 @@ test('multi-channel requirements come from selected channels, excluding handover
 
 test('branch visibility follows the requirements, not stale answers', () => {
   assert.equal(getFlow(base).questions.length, 6);
-  assert.equal(getFlow({ ...base, job: ['actions'] }).questions.length, 8);
+  assert.equal(getFlow({ ...base, job: ['actions'] }).questions.length, 7);
   assert.equal(getFlow({ ...base, architecture: ['own'], job: ['actions'] }).questions.length, 6);
-  assert.equal(getFlow({ ...base, job: ['knowledge', 'actions'] }).questions.length, 8);
+  assert.equal(getFlow({ ...base, job: ['knowledge', 'actions'] }).questions.length, 7);
 });
 
 test('unanswered questions never exclude platforms or trigger capability warnings', () => {
@@ -165,6 +183,7 @@ test('explicit requirements progressively narrow the shortlist', () => {
   const expected: [Answers, string[]][] = [
     [{ ownership: ['organization'] }, ['builder', 'cowork']],
     [{ architecture: ['own'] }, ['builder', 'studio', 'standard', 'cowork', 'toolkit']],
+    [{ architecture: ['managed'] }, ['sdk']],
     [{ autonomy: ['personal'] }, ['builder', 'toolkit']],
     [{ audience: ['customers'] }, ['builder', 'cowork', 'toolkit']],
     [{ channels: ['web'] }, ['builder', 'cowork', 'toolkit']],
@@ -177,6 +196,20 @@ test('explicit requirements progressively narrow the shortlist', () => {
   assert.ok(voice.conditional.some(candidate => candidate.product.id === 'studio'));
   assert.ok(voice.applicable.some(candidate => candidate.product.id === 'standard'));
   assert.equal(voice.active.length, 3);
+});
+
+test('managed runtime excludes SDK and editing runtime restores the appropriate platforms', () => {
+  const managed = getFlow(base);
+  const sdk = managed.shortlist.excluded.find(candidate => candidate.product.id === 'sdk')!;
+  assert.ok(sdk.blockers.some(note => note.includes('platform-managed runtime')));
+  assert.equal(sdk.reasons.length, 0);
+  assert.ok(!managed.shortlist.active.some(candidate => candidate.product.id === 'sdk'));
+  assert.ok(!recommend(base).alternatives.some(candidate => candidate.product.id === 'sdk'));
+  const own = getFlow({ ...managed.answers, architecture: ['own'] });
+  assert.deepEqual(own.shortlist.active.map(candidate => candidate.product.id), ['sdk']);
+  assert.equal(recommend(own.answers).primary?.product.id, 'sdk');
+  assert.deepEqual(getFlow({ ...own.answers, architecture: ['managed'] }), managed);
+  assert.ok(getFlow({ ...managed.answers, architecture: [] }).shortlist.active.some(candidate => candidate.product.id === 'sdk'));
 });
 
 test('jobs are multi-select and control is always an independent second question', () => {
@@ -214,7 +247,7 @@ test('every selected job contributes its blockers and confirmations', () => {
     assert.equal(summary?.value, questions[0].choices.filter(choice => job.includes(choice.id)).map(choice => choice.label).join('; '));
   }
   const allJobs = { ...base, job: jobChoices };
-  const standard = recommend({ ...allJobs, existing: ['standard'] });
+  const standard = recommend({ ...allJobs, channels: ['voice'] });
   assert.equal(standard.primary?.product.id, 'standard');
   assert.equal(standard.status, 'review');
   const toolkit = recommend({ ...allJobs, integration: ['apis'] });
@@ -296,9 +329,8 @@ test('candidate exclusions remove irrelevant follow-ups and their stale values',
   const web = getFlow({ ...base, job: ['actions'], channels: ['web', 'm365'], integration: ['apis'] });
   assert.equal(web.answers.integration, undefined);
   assert.equal(recommend(web.answers).primary?.product.id, 'studio');
-  const handover = getFlow({ ...base, channels: ['handover'], existing: ['standard'] });
-  assert.equal(handover.answers.existing, undefined);
-  assert.ok(!handover.questions.some(question => question.id === 'existing'));
+  const handover = getFlow({ ...base, channels: ['handover'] });
+  assert.equal(recommend(handover.answers).primary?.product.id, 'standard');
   const one = getFlow({ ...base, architecture: ['own'], job: ['actions'] });
   assert.equal(one.shortlist.active.length, 1);
   assert.ok(one.questions.some(question => question.id === 'channels'));
@@ -318,9 +350,10 @@ test('incompatible answers produce an early no-match result and editing restores
   assert.equal(result.primary, undefined);
   assert.equal(result.alternatives.length, 0);
   const revised = getFlow({ ...blocked.answers, ownership: ['user'] });
-  assert.equal(revised.shortlist.active.length, 4);
-  assert.equal(revised.questions.length, 7);
-  assert.equal(recommend(revised.answers).status, 'incomplete');
+  assert.equal(revised.shortlist.active.length, 3);
+  assert.equal(revised.questions.length, 6);
+  assert.equal(recommend(revised.answers).status, 'review');
+  assert.equal(recommend(revised.answers).primary?.product.id, 'cowork');
 });
 
 test('exhaustive combinations never mark blocked or unconfirmed must-haves as recommended', () => {
@@ -332,11 +365,10 @@ test('exhaustive combinations never mark blocked or unconfirmed must-haves as re
   for (const architecture of ['managed', 'own'])
   for (const autonomy of ['prompted', 'personal', 'organization'])
   for (const integration of ['connectors', 'apis'])
-  for (const existing of ['new', 'standard'])
   for (let mask = 1; mask < 16; mask += 1) {
     const answers: Answers = {
       job, audience: [audience], ownership: [ownership], architecture: [architecture],
-      autonomy: [autonomy], integration: [integration], existing: [existing],
+      autonomy: [autonomy], integration: [integration],
       channels: channels.filter((_, index) => mask & (1 << index)),
     };
     const result = recommend(answers);
@@ -358,6 +390,11 @@ test('exhaustive combinations never mark blocked or unconfirmed must-haves as re
     assert.equal(result.candidates.length, products.length);
     assert.ok(result.alternatives.every(candidate => !candidate.blockers.length));
     if (result.primary) assert.equal(result.primary.blockers.length, 0);
+    if (architecture === 'managed') {
+      assert.ok(result.excluded.some(candidate => candidate.product.id === 'sdk'));
+      assert.notEqual(result.primary?.product.id, 'sdk');
+      assert.ok(!result.alternatives.some(candidate => candidate.product.id === 'sdk'));
+    }
     assert.equal(result.alternatives.length + result.excluded.length + Number(!!result.primary), 6);
     if (result.status === 'recommended') {
       assert.equal(result.primary?.blockers.length, 0);
@@ -367,7 +404,7 @@ test('exhaustive combinations never mark blocked or unconfirmed must-haves as re
     if (architecture === 'own' && result.primary) assert.equal(result.primary.product.id, 'sdk');
     count += 1;
   }
-  assert.equal(count, 15120);
+  assert.equal(count, 7560);
 });
 
 test('deployment supports root and repository paths, rejects malformed settings', () => {

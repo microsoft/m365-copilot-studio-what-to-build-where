@@ -8,7 +8,7 @@ import { recommend } from '../src/lib/recommend';
 const answers: Answers = {
   job: ['knowledge', 'actions'], ownership: ['user'], audience: ['employees'],
   architecture: ['managed'], channels: ['m365', 'web'], autonomy: ['prompted'],
-  integration: ['connectors'], existing: ['new'],
+  integration: ['connectors'],
 };
 
 test('feedback links select general or contextual templates without a category question', () => {

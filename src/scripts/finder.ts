@@ -1,4 +1,4 @@
-import { has, type Answers } from '../data/guidance';
+import { has, relatedGuidance, type Answers } from '../data/guidance';
 import { recommend } from '../lib/recommend';
 import { type Candidate } from '../lib/candidates';
 import { getFlow } from '../lib/flow';
@@ -185,6 +185,9 @@ function renderResult() {
     result.append(candidateDetails(primary));
     addList(result, 'Items to validate', primary.product.review, 'review-note');
   }
+  const documentPlaceholder = node('section', 'related-guidance');
+  documentPlaceholder.append(node('h3', '', relatedGuidance.title), node('p', 'muted', relatedGuidance.description));
+  result.append(documentPlaceholder);
   if (recommendation.alternatives.length) {
     result.append(node('h3', 'alternatives-heading', primary ? 'Remaining alternatives' : 'Remaining platforms'));
     result.append(node('p', 'muted', 'Expand each option to review its suitability, limitations, and trade-offs.'));

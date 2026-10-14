@@ -62,7 +62,7 @@ BASE_PATH=/m365-copilot-studio-what-to-build-where/ npm run test:e2e
 Browser tests build the site and start/stop their own preview server on port 4327.
 They cover desktop/mobile, themes, the six result candidates, uncertainty,
 navigation, conditional answers, and no-JavaScript fallback. Unit tests exercise
-all 15,120 combinations of the encoded answer categories, including all nonempty
+all 7,560 combinations of the encoded answer categories, including all nonempty
 job and channel combinations, plus partial-answer exclusions, independent control choices, and
 restoration of platforms after an answer changes.
 
@@ -110,7 +110,7 @@ answers and update as selections change.
 It clears all selections and returns to the first question and full shortlist.
 
 Recommendations are selected only from active candidates. Preference precedence
-is own runtime; voice/handover/existing Standard Harness; owned autonomy; Microsoft 365
+is own runtime; voice/handover; owned autonomy; Microsoft 365
 API/MCP integration; organization/audience/channel requirements; personal autonomy;
 Copilot Studio actions/reasoning; knowledge-only work. The first
 applicable preference among remaining candidates wins. Multiple remaining options
@@ -121,11 +121,21 @@ The first question accepts multiple jobs: knowledge or process guidance,
 business-system actions, and complex tasks/documents. Every selected job contributes
 its requirements; selecting knowledge alongside actions or reasoning does not
 restore a platform excluded by those needs. The summary lists all selected jobs.
+The descriptions distinguish explaining process steps from executing them.
+Onboarding can involve business actions, checks, and approvals; it is not treated
+as knowledge-only work. Select all jobs needed for the actual onboarding process.
 
 The second question always asks who guides the work, as a separate single choice.
 Job selections never infer ownership. Employee-directed business actions retain
 Cowork subject to plugin confirmation; user direction alone does not select it.
 Editing the selected jobs preserves the explicit control answer.
+Approved organizational content can be used in either operating model; this
+question concerns who determines the agent's next actions and required paths.
+
+The architecture choice is a requirement: a platform-managed runtime excludes
+Microsoft 365 Agents SDK because the team must supply and operate its runtime.
+Choosing your own models/orchestration retains SDK and excludes managed options.
+Changing or clearing this answer reevaluates the shortlist and result.
 
 Audience is the third question. The Microsoft 365 knowledge/guidance job is
 explicitly employee-facing: selecting it, alone or with other jobs, hides both
@@ -148,11 +158,20 @@ only in the preserved source drafts, pending confirmation of support.
 
 Follow-up visibility is evaluated from earlier answers and the candidates still
 active at that point. API/MCP integration questions disappear once Toolkit is
-excluded. The existing-Standard-Harness question is skipped when voice/handover already
-determines the harness preference, or the Copilot Studio options are excluded. Questions
+excluded. There is no new/existing-agent question or lifecycle-based routing.
+Standard Harness limitations highlight the preference for GitHub Copilot Harness
+for new agents, while retaining Standard for its channel requirements or existing
+agents. Both harness brand names remain in the guidance. Questions
 about audience, channels, and autonomy still capture prerequisites when SDK is
 the sole remaining candidate. Hidden follow-up answers are discarded; newly
 relevant questions require a new answer.
+Copilot Studio GitHub Copilot Harness results also surface the consideration to
+retain Standard when extending an existing Standard Harness agent, as requested
+in [issue #1](https://github.com/microsoft/m365-copilot-studio-what-to-build-where/issues/1).
+
+Results and the comparison page include a non-clickable **Related guidance**
+document placeholder for platform details and next steps. No document URL has
+been supplied yet; the copy lives in `relatedGuidance` in `src/data/guidance.ts`.
 
 The capability check distinguishes draft support, incompatibility **within the
 scope of this guidance**, and unresolved requirements. It is not a universal

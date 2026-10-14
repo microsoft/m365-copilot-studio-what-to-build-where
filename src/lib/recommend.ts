@@ -14,7 +14,7 @@ export interface Recommendation {
 function preferenceTiers(a: Answers): ProductId[][] {
   const tiers: ProductId[][] = [];
   if (has(a, 'architecture', 'own')) tiers.push(['sdk']);
-  if (has(a, 'channels', 'handover') || has(a, 'channels', 'voice') || has(a, 'existing', 'standard')) tiers.push(['standard']);
+  if (has(a, 'channels', 'handover') || has(a, 'channels', 'voice')) tiers.push(['standard']);
   if (has(a, 'autonomy', 'organization')) tiers.push(['studio']);
   if (has(a, 'integration', 'apis')) tiers.push(['toolkit']);
   if (has(a, 'ownership', 'organization') || has(a, 'audience', 'customers') || has(a, 'audience', 'both') ||

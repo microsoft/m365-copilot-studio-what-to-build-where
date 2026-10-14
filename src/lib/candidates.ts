@@ -29,6 +29,9 @@ export function evaluate(product: Product, a: Answers): Candidate {
     if (id === 'sdk') reasons.push('You need to choose your own models and orchestration; the SDK leaves that runtime with your team.');
     else blockers.push('Your requirement to supply your own models and orchestration conflicts with this platform-managed runtime.');
   }
+  if (has(a, 'architecture', 'managed') && id === 'sdk') {
+    blockers.push('You require a platform-managed runtime. Microsoft 365 Agents SDK requires your team to provide and operate the models, orchestration, and hosting.');
+  }
   if ((has(a, 'audience', 'customers') || has(a, 'audience', 'both')) &&
       ['builder', 'cowork', 'toolkit'].includes(id)) {
     blockers.push('This guidance scopes this option to employee Microsoft 365 work. Your audience includes customers.');
@@ -85,11 +88,8 @@ export function evaluate(product: Product, a: Answers): Candidate {
   }
   if (id === 'studio' && has(a, 'job', 'actions')) reasons.push('Connectors and workflows combine business-system actions with agentic and fixed-rule steps.');
   if (id === 'studio' && has(a, 'job', 'reasoning')) reasons.push('The draft highlights reasoning, multistep tools, and document processing for this harness.');
-  if (id === 'standard' && has(a, 'existing', 'standard')) reasons.push('You are extending a Copilot Studio agent that uses the Standard Harness.');
   if (id === 'builder' && has(a, 'job', 'knowledge')) reasons.push('The work includes answering questions or guiding people using Microsoft 365 content.');
   if (id === 'cowork' && has(a, 'ownership', 'user')) reasons.push('The employee directs the work; Cowork provides a ready-made assistant for that operating model.');
-  if (id === 'sdk' && has(a, 'architecture', 'managed')) reasons.push('A developer-owned runtime remains an alternative, with additional hosting and orchestration responsibilities.');
-  if (id === 'studio' && has(a, 'existing', 'new')) reasons.push('For new Copilot Studio agents, the draft favors the GitHub Copilot Harness, including workflows with fixed-rule steps.');
   return candidate;
 }
 

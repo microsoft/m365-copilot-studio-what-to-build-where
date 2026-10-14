@@ -1,6 +1,11 @@
 export type ProductId = 'builder' | 'studio' | 'standard' | 'cowork' | 'toolkit' | 'sdk';
-export type QuestionId = 'job' | 'audience' | 'ownership' | 'architecture' | 'channels' | 'autonomy' | 'integration' | 'existing';
+export type QuestionId = 'job' | 'audience' | 'ownership' | 'architecture' | 'channels' | 'autonomy' | 'integration';
 export type Answers = Partial<Record<QuestionId, string[]>>;
+
+export const relatedGuidance = {
+  title: 'Related guidance',
+  description: 'Document link coming soon. The related document will provide further platform details and next steps.',
+};
 
 export interface Product {
   id: ProductId;
@@ -25,14 +30,14 @@ export const products: Product[] = [
     id: 'studio', name: 'Copilot Studio', shortName: 'Copilot Studio · GitHub Copilot Harness', category: 'GitHub Copilot Harness',
     summary: 'Build an organization-designed agent for complex work.',
     goodFor: 'New business agents with reasoning, document processing, tool use, and organization-owned automation.',
-    watch: ['Budget for multistep execution and autonomous work; assign an owner to review outcomes.', 'The draft does not provide live-human handover for this harness.'],
+    watch: ['If you are extending an existing Copilot Studio agent that uses the Standard Harness, consider retaining that harness for its existing topics and integrations.', 'Budget for multistep execution and autonomous work; assign an owner to review outcomes.', 'The draft does not provide live-human handover for this harness.'],
     review: ['Confirm supported channels and voice availability.', 'Validate the draft claims about reasoning models, recovery behavior, and per-request costs against current product documentation.'],
   },
   {
     id: 'standard', name: 'Copilot Studio', shortName: 'Copilot Studio · Standard Harness', category: 'Standard Harness',
-    summary: 'Extend a Copilot Studio agent using the Standard Harness or meet specialist channel needs.',
+    summary: 'Use Copilot Studio for voice or live-human handover, or extend an existing Standard Harness agent.',
     goodFor: 'Existing Copilot Studio agents using the Standard Harness, and the draft’s voice or live-human-handover scenarios.',
-    watch: ['Fixed-rule business steps alone are not a reason to choose the Standard Harness.', 'Check the exact voice or handover integration and the channels you intend to use.'],
+    watch: ['The Standard Harness is not the default choice for new agents. Evaluate the GitHub Copilot Harness first, unless voice or live-human handover requires Standard.', 'Fixed-rule business steps alone are not a reason to choose the Standard Harness.', 'Check the exact voice or handover integration and the channels you intend to use.'],
     review: ['Validate the roadmap and model availability; the draft’s “no major new capabilities” statement is not a verified roadmap.', 'Organization-owned autonomy and advanced reasoning requirements need confirmation for this harness.'],
   },
   {
@@ -87,17 +92,17 @@ export const questions: Question[] = [
     hint: 'Select all that apply. The platform needs to support the combined requirements of the work.',
     multiple: true,
     choices: [
-      { id: 'knowledge', label: 'Answer questions or guide people in Microsoft 365', detail: 'Help employees find answers with citations or follow approved steps, using Microsoft 365 content such as HR policies or onboarding guidance.' },
-      { id: 'actions', label: 'Take action in business systems', detail: 'Create tickets, update CRM records, or start approvals as part of a process.' },
+      { id: 'knowledge', label: 'Answer questions or guide people in Microsoft 365', detail: 'Answer employees’ policy questions or explain process steps using Microsoft 365 content. Also select business-system actions if the agent must carry out those steps.' },
+      { id: 'actions', label: 'Take action in business systems', detail: 'Carry out process steps, such as creating onboarding tasks, updating employee or CRM records, and routing approvals.' },
       { id: 'reasoning', label: 'Work through a complex business task', detail: 'Combine reasoning, tools, and document processing, such as investigating invoice discrepancies or reviewing contracts.' },
     ],
   },
   {
     id: 'ownership', label: 'Behavior', title: 'Who guides the work?',
-    hint: 'Decide who controls the path the work follows. Both approaches can use tools to act in business systems.',
+    hint: 'Choose who determines what the agent does next. Both approaches can use approved organizational content and act in business systems.',
     choices: [
-      { id: 'organization', label: 'The organization', detail: 'The organization defines required steps and sensitive paths, such as HR escalation or personal-data checks.' },
-      { id: 'user', label: 'The person doing the work', detail: 'The user sets goals and directs each task, within centrally managed plugins, skills, and guardrails.' },
+      { id: 'organization', label: 'The organization', detail: 'The agent must follow organization-defined steps, checks, and escalation paths, such as coordinating onboarding tasks and approvals.' },
+      { id: 'user', label: 'The person doing the work', detail: 'The person directs each task within organizational policies, permissions, and centrally managed plugins and skills.' },
     ],
   },
   {
@@ -120,7 +125,7 @@ export const questions: Question[] = [
     id: 'architecture', label: 'Architecture', title: 'Do you need your own models or orchestration?',
     hint: 'Orchestration controls reasoning and tool use. A platform-managed agent can also be embedded in a website or custom client.',
     choices: [
-      { id: 'managed', label: 'No, a platform-managed runtime works', detail: 'Use the platform’s models and orchestration, with supported tools and integrations.' },
+      { id: 'managed', label: 'No, we need a platform-managed runtime', detail: 'Use the platform’s models and orchestration, with supported tools and integrations.' },
       { id: 'own', label: 'Yes, we must choose and run our own', detail: 'Developers select the AI services and orchestration libraries, and own hosting and security.' },
     ],
   },
@@ -155,21 +160,6 @@ export const questions: Question[] = [
     choices: [
       { id: 'connectors', label: 'Use platform connectors and workflows', detail: 'Build business actions and pre-authored steps in a low-code tool.' },
       { id: 'apis', label: 'Use our own APIs or MCP servers', detail: 'Developers own integration code, authentication, testing, and deployment. Fixed-rule workflows use code or an external service.' },
-    ],
-  },
-  {
-    id: 'existing', label: 'Starting point', title: 'Are you extending a Copilot Studio agent that uses the Standard Harness?',
-    hint: 'For new agents, evaluate the GitHub Copilot Harness first, including workflows with fixed-rule steps. Existing agents can retain the Standard Harness.',
-    when: (a, candidates) => has(a, 'architecture', 'managed') &&
-      candidates.includes('studio') && candidates.includes('standard') &&
-      !has(a, 'channels', 'voice') && !has(a, 'channels', 'handover') && (
-      has(a, 'ownership', 'organization') || has(a, 'job', 'actions') || has(a, 'job', 'reasoning') ||
-      ['web', 'voice', 'handover'].some(channel => has(a, 'channels', channel)) ||
-      has(a, 'audience', 'customers') || has(a, 'audience', 'both') || has(a, 'autonomy', 'organization')
-    ),
-    choices: [
-      { id: 'new', label: 'No, this is a new agent', detail: 'Assess the required behavior, channels, and governance before choosing a harness.' },
-      { id: 'standard', label: 'Yes, our agent uses the Standard Harness', detail: 'Extend existing topics, dialogue branching, and integrations in Copilot Studio.' },
     ],
   },
 ];

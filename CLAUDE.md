@@ -68,6 +68,20 @@ app session with a local Git repository.
   channel descriptions while preserving the original source documents.
 - Fixed rules do not imply Standard; website embedding does not imply SDK;
   prompt-only does not imply Agent Builder. These are tested distinctions.
+- User-directed refinement: onboarding is a process, not inherently an FAQ.
+  Distinguish explaining process steps from executing actions, checks, and
+  approvals. The control question concerns who directs behavior, not who approves
+  knowledge sources; both models can use organizational content.
+- Remove new/existing-agent lifecycle from questions and routing. Highlight the
+  new-agent preference on Standard Harness limitations instead, while preserving
+  voice/handover routing to Standard. Retain both harness brand names.
+  Issue #1 also requests the existing-Standard-agent consideration on Copilot
+  Studio outcomes, including GitHub Copilot Harness, rather than only on Standard.
+- Results and comparison include a Related guidance document placeholder for
+  further details/next steps. The URL is not yet supplied; do not add a fake link.
+- User-directed: a platform-managed runtime excludes Microsoft 365 Agents SDK,
+  not merely deprioritizes it. Restore SDK only when runtime ownership changes or
+  the architecture answer is cleared. Explain the hosting/orchestration mismatch.
 - GitHub Pages origin/base come from deployment metadata. Keep root and project
   path builds working. Internal URLs use `src/lib/url.ts`.
 - The Astro scaffolder initially emitted an unavailable Astro version; the app

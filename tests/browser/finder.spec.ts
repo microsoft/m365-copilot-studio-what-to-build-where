@@ -2,12 +2,12 @@ import { expect, test, type Page } from '@playwright/test';
 
 const defaults: Record<string, string[]> = {
   job: ['knowledge'], audience: ['employees'], ownership: ['user'], architecture: ['managed'],
-  channels: ['m365'], autonomy: ['prompted'], integration: ['connectors'], existing: ['new'],
+  channels: ['m365'], autonomy: ['prompted'], integration: ['connectors'],
 };
 
 async function journey(page: Page, overrides: Record<string, string[]> = {}) {
   const answers = { ...defaults, ...overrides };
-  for (let index = 0; index < 8; index += 1) {
+  for (let index = 0; index < 7; index += 1) {
     if (await page.locator('#result').isVisible()) break;
     const name = await page.locator('#question-content input').first().getAttribute('name');
     if (!name || !answers[name]) throw new Error(`Unexpected question: ${name}`);
@@ -53,12 +53,12 @@ test('initial page, color themes, keyboard validation, and responsive layout', a
 });
 
 const scenarios: { title: string; overrides: Record<string, string[]>; product: string; status: string; alternatives: number }[] = [
-  { title: 'Agent Builder', overrides: {}, product: 'Agent Builder', status: 'Recommended starting point', alternatives: 5 },
-  { title: 'Studio new actions', overrides: { job: ['actions'] }, product: 'Copilot Studio', status: 'Recommended starting point', alternatives: 4 },
-  { title: 'Standard existing', overrides: { job: ['actions'], existing: ['standard'] }, product: 'Copilot Studio', status: 'Recommended starting point', alternatives: 4 },
-  { title: 'Cowork personal autonomy', overrides: { autonomy: ['personal'] }, product: 'Cowork', status: 'Needs review', alternatives: 3 },
-  { title: 'Combined jobs', overrides: { job: ['knowledge', 'actions', 'reasoning'] }, product: 'Copilot Studio', status: 'Recommended starting point', alternatives: 4 },
-  { title: 'Toolkit integration review', overrides: { job: ['actions'], integration: ['apis'] }, product: 'Microsoft 365 Agents Toolkit', status: 'Needs review', alternatives: 4 },
+  { title: 'Agent Builder', overrides: {}, product: 'Agent Builder', status: 'Recommended starting point', alternatives: 4 },
+  { title: 'Studio new actions', overrides: { job: ['actions'] }, product: 'Copilot Studio', status: 'Recommended starting point', alternatives: 3 },
+  { title: 'Standard handover', overrides: { job: ['actions'], channels: ['web', 'handover'] }, product: 'Copilot Studio', status: 'Recommended starting point', alternatives: 0 },
+  { title: 'Cowork personal autonomy', overrides: { autonomy: ['personal'] }, product: 'Cowork', status: 'Needs review', alternatives: 2 },
+  { title: 'Combined jobs', overrides: { job: ['knowledge', 'actions', 'reasoning'] }, product: 'Copilot Studio', status: 'Recommended starting point', alternatives: 3 },
+  { title: 'Toolkit integration review', overrides: { job: ['actions'], integration: ['apis'] }, product: 'Microsoft 365 Agents Toolkit', status: 'Needs review', alternatives: 3 },
   { title: 'SDK own runtime', overrides: { architecture: ['own'] }, product: 'Microsoft 365 Agents SDK', status: 'Recommended starting point', alternatives: 0 },
 ];
 for (const scenario of scenarios) {
@@ -68,6 +68,16 @@ for (const scenario of scenarios) {
     await expect(page.locator('.result-status')).toHaveText(scenario.status);
     await expect(page.locator('#result')).toContainText(scenario.product);
     await expect(page.locator('.alternative')).toHaveCount(scenario.alternatives);
+    await expect(page.locator('#answer-summary')).not.toContainText('Starting point');
+    await expect(page.locator('.related-guidance')).toContainText('Document link coming soon.');
+    await expect(page.locator('.related-guidance a')).toHaveCount(0);
+    if (scenario.title === 'Standard handover') {
+      await expect(page.locator('.recommended-product .utility')).toHaveText('Standard Harness');
+      await expect(page.locator('#result')).toContainText('not the default choice for new agents');
+    }
+    if (scenario.title === 'Studio new actions') {
+      await expect(page.locator('#result')).toContainText('extending an existing Copilot Studio agent that uses the Standard Harness');
+    }
     const excluded = await page.locator('#exclusion-reasons [data-product]').evaluateAll(items => items.map(item => item.getAttribute('data-product')));
     for (const id of excluded) await expect(page.locator(`#result [data-product="${id}"]`)).toHaveCount(0);
     await expect(page.locator('[data-focus]:visible')).toBeFocused();
@@ -253,7 +263,7 @@ test('Microsoft 365 audience stays visible and preselected for confirmation or g
   await page.getByRole('button', { name: /^Edit The job:/ }).click();
   await page.locator('input[value="knowledge"]').check();
   await expect(page.getByRole('button', { name: /^Edit Audience:/ })).toHaveCount(0);
-  await page.getByRole('button', { name: /^Edit Starting point:/ }).click();
+  await page.getByRole('button', { name: /^Edit Autonomy:/ }).click();
   await page.locator('#continue').click();
   await expect(page.getByRole('heading', { name: 'Who will use it?' })).toBeVisible();
   await expect(page.locator('#result')).toBeHidden();
@@ -401,13 +411,33 @@ for (const audience of ['customers', 'both']) {
     await page.getByRole('button', { name: /^Edit Audience:/ }).click();
     await page.locator(`input[value="${audience}"]`).check();
     await expect(page.getByRole('button', { name: /^Edit Channels:/ })).toHaveCount(0);
-    await page.getByRole('button', { name: /^Edit Starting point:/ }).click();
+    await page.getByRole('button', { name: /^Edit Autonomy:/ }).click();
     await page.locator('#continue').click();
     await expect(page.getByRole('heading', { name: 'Where does it need to work?' })).toBeVisible();
     await expect(page.locator('input[name="channels"]:checked')).toHaveCount(0);
     await expect(page.locator('input[value="m365"]')).toHaveCount(0);
   });
 }
+
+test('managed runtime excludes SDK and changing runtime restores it', async ({ page }) => {
+  await page.goto('');
+  await journey(page);
+  await expect(page.locator('#result [data-product="sdk"]')).toHaveCount(0);
+  await page.locator('#excluded-platforms > summary').click();
+  await page.locator('#exclusion-reasons [data-product="sdk"] summary').click();
+  await expect(page.locator('#exclusion-reasons [data-product="sdk"]')).toContainText('You require a platform-managed runtime.');
+  await showRequirements(page);
+  await page.getByRole('button', { name: /^Edit Architecture:/ }).click();
+  await page.locator('input[value="own"]').check();
+  await expect(page.locator('#exclusion-reasons [data-product="sdk"]')).toHaveCount(0);
+  await journey(page, { architecture: ['own'] });
+  await expect(page.locator('.recommended-product')).toHaveAttribute('data-product', 'sdk');
+  await page.getByRole('button', { name: /^Edit Architecture:/ }).click();
+  await page.locator('input[value="managed"]').check();
+  await journey(page);
+  await expect(page.locator('#result [data-product="sdk"]')).toHaveCount(0);
+  await expect(page.locator('.recommended-product')).toHaveAttribute('data-product', 'builder');
+});
 
 test('unknown voice support remains conditional while handover excludes and restores Studio', async ({ page }) => {
   await page.goto('');
@@ -417,17 +447,17 @@ test('unknown voice support remains conditional while handover excludes and rest
   }
   await page.locator('input[value="voice"]').check();
   await expect(page.locator('#conditional-platforms [data-product="studio"]')).toHaveCount(1);
-  await expect(page.locator('#shortlist-count')).toHaveText('3');
+  await expect(page.locator('#shortlist-count')).toHaveText('2');
   await page.locator('input[value="handover"]').check();
   await expect(page.locator('#conditional-platforms [data-product="studio"]')).toHaveCount(0);
   await expect(page.locator('#exclusion-reasons [data-product="studio"]')).toHaveCount(1);
-  await expect(page.locator('#shortlist-count')).toHaveText('2');
+  await expect(page.locator('#shortlist-count')).toHaveText('1');
   await page.locator('input[value="handover"]').uncheck();
   await expect(page.locator('#conditional-platforms [data-product="studio"]')).toHaveCount(1);
-  await expect(page.locator('#shortlist-count')).toHaveText('3');
+  await expect(page.locator('#shortlist-count')).toHaveText('2');
 });
 
-test('irrelevant integration and harness questions are skipped', async ({ page }) => {
+test('handover goes directly to the result without integration or lifecycle questions', async ({ page }) => {
   await page.goto('');
   for (const [name, value] of [['job', 'actions'], ['ownership', 'user'], ['audience', 'employees'], ['architecture', 'managed']]) {
     await page.locator(`input[name="${name}"][value="${value}"]`).check();
@@ -440,8 +470,8 @@ test('irrelevant integration and harness questions are skipped', async ({ page }
   await page.locator('#continue').click();
   await expect(page.locator('#result')).toBeVisible();
   await expect(page.locator('.recommended-product .utility')).toHaveText('Standard Harness');
-  await expect(page.locator('.alternative')).toHaveCount(1);
-  await expect(page.locator('.alternative')).toHaveAttribute('data-product', 'sdk');
+  await expect(page.locator('.alternative')).toHaveCount(0);
+  await expect(page.locator('#exclusion-reasons [data-product="sdk"]')).toHaveCount(1);
 });
 
 test('no-match result identifies conflicting answers and can be revised', async ({ page }, info) => {
@@ -462,7 +492,7 @@ test('no-match result identifies conflicting answers and can be revised', async 
   await showRequirements(page);
   await page.getByRole('button', { name: /^Edit Behavior:/ }).click();
   await page.locator('input[value="user"]').check();
-  await expect(page.locator('#shortlist-count')).toHaveText('4');
+  await expect(page.locator('#shortlist-count')).toHaveText('3');
   await journey(page, { autonomy: ['personal'] });
   await expect(page.locator('.recommended-product')).toHaveAttribute('data-product', 'cowork');
   await expect(page.locator('.result-status')).toHaveText('Needs review');
@@ -484,6 +514,9 @@ test('comparison works without JS, base-aware assets and links load', async ({ b
   await expect(page.getByRole('heading', { name: 'Compare agent platforms' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'How recommendations are determined' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Data handling' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Related guidance' })).toBeVisible();
+  await expect(page.locator('.methodology')).toContainText('Document link coming soon.');
+  await expect(page.locator('#standard')).toContainText('not the default choice for new agents');
   await page.getByRole('link', { name: 'Back to the guide' }).click();
   expect(page.url()).toBe(baseURL);
   expect(failed).toEqual([]);
