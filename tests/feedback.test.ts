@@ -39,7 +39,7 @@ test('feedback links select general or contextual templates without a category q
   assert.ok(template.indexOf('id: context\n') < template.indexOf('id: feedback\n'));
 });
 
-test('step feedback includes combined selections and removes stale hidden answers', () => {
+test('step feedback includes combined selections and removes disabled or irrelevant answers', () => {
   const url = new URL(feedbackUrl({
     kind: 'step', questionId: 'channels',
     answers: { ...answers, job: ['actions'], audience: ['both'], integration: ['apis'] },
@@ -61,15 +61,17 @@ test('preselected audience remains unconfirmed without mutating answers', () => 
   assert.equal(partial.audience, undefined);
 });
 
-test('result feedback preserves harness identity, review notes, and no-match results', () => {
+test('result feedback preserves harness identity and review notes, and rejects incomplete assessments', () => {
   const context = new URL(feedbackUrl({ kind: 'result', answers })).searchParams.get('context')!;
   assert.match(context, /Result: Needs review/);
   assert.match(context, /Platform: Copilot Studio · GitHub Copilot Harness/);
   for (const note of recommend(answers).primary!.confirmations) assert.ok(context.includes(note));
   const conflict = { ...answers, ownership: ['organization'], autonomy: ['personal'] };
-  const noMatch = new URL(feedbackUrl({ kind: 'result', answers: conflict })).searchParams.get('context')!;
-  assert.match(noMatch, /No single recommendation/);
-  for (const issue of recommend(conflict).issues) assert.ok(noMatch.includes(issue));
+  const step = new URL(feedbackUrl({ kind: 'step', questionId: 'autonomy', answers: conflict })).searchParams.get('context')!;
+  assert.match(step, /Behavior: The organization/);
+  assert.match(step, /Current step has no selection/);
+  assert.doesNotMatch(step, /Autonomy:|for an employee’s own work/);
+  assert.throws(() => feedbackUrl({ kind: 'result', answers: conflict }), /completed assessment/);
   assert.throws(() => feedbackUrl({ kind: 'result', answers: {} }), /completed assessment/);
   assert.throws(() => feedbackUrl({
     kind: 'step', questionId: 'integration', answers: { architecture: ['own'] },

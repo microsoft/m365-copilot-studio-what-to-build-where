@@ -1,4 +1,4 @@
-import { questions, type Answers, type Question, type QuestionId } from '../data/guidance';
+import { questions, type Answers, type Choice, type Question, type QuestionId } from '../data/guidance';
 import { assessCandidates } from './candidates';
 
 export interface SummaryAnswer {
@@ -7,24 +7,38 @@ export interface SummaryAnswer {
   value: string;
 }
 
+interface ResolvedChoice extends Omit<Choice, 'disabledReason'> {
+  disabledReason?: string;
+}
+
+interface ResolvedQuestion extends Omit<Question, 'choices'> {
+  choices: ResolvedChoice[];
+  singleEnabledChoice?: ResolvedChoice;
+}
+
 export function getFlow(input: Answers) {
   const answers: Answers = {};
-  const visible: Question[] = [];
+  const visible: ResolvedQuestion[] = [];
   const summary: SummaryAnswer[] = [];
 
-  // Evaluate visibility from earlier answers only, so a selection cannot hide
-  // itself and discarded follow-ups cannot prevent a platform from returning.
+  // Resolve visibility and availability from earlier answers only, so a choice
+  // cannot disable itself and discarded answers cannot block returning platforms.
   for (const definition of questions) {
     const shortlist = assessCandidates(answers);
     if (!shortlist.active.length) break;
     if (definition.when && !definition.when(answers, shortlist.active.map(candidate => candidate.product.id))) continue;
-    const question = {
+    const choices = definition.choices.map(({ disabledReason, ...choice }) => ({
+      ...choice, disabledReason: disabledReason?.(answers),
+    }));
+    const enabledChoices = choices.filter(choice => !choice.disabledReason);
+    const question: ResolvedQuestion = {
       ...definition,
-      choices: definition.choices.filter(choice => !choice.when || choice.when(answers)),
+      choices,
+      singleEnabledChoice: !definition.multiple && enabledChoices.length === 1 ? enabledChoices[0] : undefined,
     };
     visible.push(question);
     const values = [...new Set(input[question.id] ?? [])].filter(value =>
-      question.choices.some(choice => choice.id === value));
+      enabledChoices.some(choice => choice.id === value));
     if (!values.length || (!question.multiple && values.length !== 1)) continue;
     answers[question.id] = values;
     summary.push({

@@ -239,7 +239,7 @@ function render(focus = true) {
     form.hidden = false;
     result.hidden = true;
     const question = questions[step];
-    const singleChoice = !question.multiple && question.choices.length === 1;
+    const singleChoice = question.singleEnabledChoice !== undefined;
     content.replaceChildren();
     const fieldset = node('fieldset', 'question-fieldset');
     const legend = node('legend');
@@ -260,9 +260,22 @@ function render(focus = true) {
       input.type = question.multiple ? 'checkbox' : 'radio';
       input.name = question.id;
       input.value = choice.id;
-      input.checked = has(answers, question.id, choice.id) || singleChoice;
+      input.disabled = !!choice.disabledReason;
+      input.checked = !input.disabled && (has(answers, question.id, choice.id) || question.singleEnabledChoice?.id === choice.id);
       const text = node('span', 'choice-text');
-      text.append(node('span', 'choice-label', choice.label), node('span', 'choice-detail', choice.detail));
+      const choiceLabel = node('span', 'choice-label', choice.label);
+      choiceLabel.id = `${question.id}-${choice.id}-label`;
+      const detail = node('span', 'choice-detail', choice.detail);
+      detail.id = `${question.id}-${choice.id}-detail`;
+      input.setAttribute('aria-labelledby', choiceLabel.id);
+      input.setAttribute('aria-describedby', detail.id);
+      text.append(choiceLabel, detail);
+      if (choice.disabledReason) {
+        const reason = node('span', 'choice-unavailable', `Unavailable. ${choice.disabledReason}`);
+        reason.id = `${question.id}-${choice.id}-unavailable`;
+        input.setAttribute('aria-describedby', `${detail.id} ${reason.id}`);
+        text.append(reason);
+      }
       label.append(input, text);
       choices.append(label);
     }
@@ -309,7 +322,7 @@ form.addEventListener('submit', event => {
   if (!answers[current]?.length) {
     error.textContent = 'Choose an option to continue.';
     error.hidden = false;
-    content.querySelector('input')?.focus();
+    content.querySelector<HTMLInputElement>('input:enabled')?.focus();
     return;
   }
   step = flow.shortlist.active.length ? step + 1 : flow.questions.length;

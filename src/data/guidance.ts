@@ -67,7 +67,7 @@ export interface Choice {
   id: string;
   label: string;
   detail: string;
-  when?: (answers: Answers) => boolean;
+  disabledReason?: (answers: Answers) => string | undefined;
 }
 export interface Question {
   id: QuestionId;
@@ -113,11 +113,13 @@ export const questions: Question[] = [
       { id: 'employees', label: 'Employees', detail: 'People inside your organization, using Microsoft 365 or an internal app.' },
       {
         id: 'customers', label: 'Customers', detail: 'Customers or other external users, such as visitors to a public website.',
-        when: a => !has(a, 'job', 'knowledge'),
+        disabledReason: a => has(a, 'job', 'knowledge')
+          ? 'The Microsoft 365 job is employee-only. Change the selected jobs.' : undefined,
       },
       {
         id: 'both', label: 'Employees and customers', detail: 'One solution serving internal and external users, with suitable access for each.',
-        when: a => !has(a, 'job', 'knowledge'),
+        disabledReason: a => has(a, 'job', 'knowledge')
+          ? 'The Microsoft 365 job is employee-only. Change the selected jobs.' : undefined,
       },
     ],
   },
@@ -136,7 +138,8 @@ export const questions: Question[] = [
     choices: [
       {
         id: 'm365', label: 'Microsoft 365 workspace', detail: 'Microsoft 365 Copilot or Teams. Check support for the specific app and interaction.',
-        when: a => !has(a, 'audience', 'customers') && !has(a, 'audience', 'both'),
+        disabledReason: a => has(a, 'audience', 'customers') || has(a, 'audience', 'both')
+          ? 'Choose "Employees" in "Who will use it?" to enable this channel.' : undefined,
       },
       { id: 'web', label: 'A website or custom app', detail: 'Embed an agent in your own website or client for customers or employees.' },
       { id: 'voice', label: 'Voice', detail: 'People speak to the agent. Confirm speech and any telephone keypad requirements.' },
@@ -148,8 +151,16 @@ export const questions: Question[] = [
     hint: 'Consider future schedules and event triggers. Autonomous work needs action logs, named owners, approval for high-impact steps, and a way to stop it.',
     choices: [
       { id: 'prompted', label: 'No, only when someone asks', detail: 'Every task starts with a person’s prompt, and this will remain true for the agent’s lifetime.' },
-      { id: 'personal', label: 'Yes, for an employee’s own work', detail: 'Scheduled or event-driven tasks that the employee directs.' },
-      { id: 'organization', label: 'Yes, as an organization-owned process', detail: 'The organization defines triggers, required steps, monitoring, and accountability for background work.' },
+      {
+        id: 'personal', label: 'Yes, for an employee’s own work', detail: 'Scheduled or event-driven tasks that the employee directs.',
+        disabledReason: a => has(a, 'ownership', 'organization')
+          ? 'Choose "The person doing the work" in "Who guides the work?" to enable this option.' : undefined,
+      },
+      {
+        id: 'organization', label: 'Yes, as an organization-owned process', detail: 'The organization defines triggers, required steps, monitoring, and accountability for background work.',
+        disabledReason: a => has(a, 'ownership', 'user')
+          ? 'Choose "The organization" in "Who guides the work?" to enable this option.' : undefined,
+      },
     ],
   },
   {

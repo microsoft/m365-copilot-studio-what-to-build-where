@@ -112,12 +112,8 @@ test('back, edit, stale conditional branches, and restart', async ({ page }) => 
   await expect(page.locator('#back')).toBeDisabled();
 });
 
-test('conflicts and required unknowns stay explicit', async ({ page }) => {
+test('required unknowns stay explicit', async ({ page }) => {
   await page.goto('');
-  await journey(page, { ownership: ['user'], autonomy: ['organization'] });
-  await expect(page.locator('.result-status')).toHaveText('Needs review');
-  await expect(page.locator('#result')).toContainText('Decide who owns the process');
-  await page.locator('#restart').click();
   await journey(page, { architecture: ['own'], channels: ['voice', 'handover'] });
   await expect(page.locator('.result-status')).toHaveText('Needs review');
   await expect(page.locator('#result')).toContainText('SDK alone does not supply it');
@@ -243,7 +239,8 @@ test('jobs combine requirements and control remains an explicit second step', as
   await expect(page.locator('#conditional-platforms [data-product="cowork"]')).toHaveCount(1);
   await page.locator('#continue').click();
   await expect(page.getByRole('heading', { name: 'Who will use it?' })).toBeVisible();
-  await expect(page.locator('input[name="audience"]')).toHaveCount(1);
+  await expect(page.locator('input[name="audience"]')).toHaveCount(3);
+  await expect(page.locator('input[name="audience"]:enabled')).toHaveCount(1);
   await expect(page.locator('input[value="employees"]')).toBeVisible();
   await showRequirements(page);
   await page.getByRole('button', { name: /^Edit The job:/ }).click();
@@ -267,14 +264,41 @@ test('Microsoft 365 audience stays visible and preselected for confirmation or g
   await page.locator('#continue').click();
   await expect(page.getByRole('heading', { name: 'Who will use it?' })).toBeVisible();
   await expect(page.locator('#result')).toBeHidden();
-  await expect(page.locator('input[name="audience"]')).toHaveCount(1);
+  await expect(page.locator('input[name="audience"]')).toHaveCount(3);
+  await expect(page.locator('input[name="audience"]:enabled')).toHaveCount(1);
   await expect(page.locator('input[value="employees"]')).toBeChecked();
   await expect(page.locator('#question-hint')).toHaveText('Your Microsoft 365 job selection limits this experience to employees. Go back to change the selected jobs.');
   await expect(page.locator('#selection-hint')).toHaveText('Continue to confirm');
   await expect(page.getByRole('button', { name: /^Edit Audience:/ })).toHaveCount(0);
-  await expect(page.locator('input[value="customers"]')).toHaveCount(0);
-  await expect(page.locator('input[value="both"]')).toHaveCount(0);
-  await page.screenshot({ path: info.outputPath('preselected-audience.png'), fullPage: true });
+  for (const value of ['customers', 'both']) {
+    const input = page.locator(`input[value="${value}"]`);
+    await expect(input).toBeVisible();
+    await expect(input).toBeDisabled();
+    await expect(input).not.toBeChecked();
+    await expect(input).toHaveAccessibleDescription(/Unavailable\. The Microsoft 365 job is employee-only/);
+    await expect(page.locator(`#audience-${value}-unavailable`)).toBeVisible();
+  }
+  const disabledRow = page.locator('.choice:has(input[value="customers"])');
+  // Bypass Playwright's enabled check to verify the browser ignores disabled labels.
+  await disabledRow.locator('.choice-label').click({ force: true });
+  await expect(page.locator('input[value="employees"]')).toBeChecked();
+  await expect(page.getByRole('button', { name: /^Edit Audience:/ })).toHaveCount(0);
+  await page.locator('input[value="employees"]').focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('input[value="employees"]')).toBeFocused();
+  await expect(page.locator('input:disabled:checked')).toHaveCount(0);
+  for (const theme of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme: theme });
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+    await expect(disabledRow).toHaveCSS('opacity', '1');
+    await expect(disabledRow).toHaveCSS('cursor', 'not-allowed');
+    await disabledRow.hover();
+    await expect(disabledRow).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    await expect(page.locator('#audience-customers-unavailable')).toHaveCSS('color',
+      theme === 'light' ? 'rgb(36, 36, 36)' : 'rgb(241, 242, 244)');
+    await page.screenshot({ path: info.outputPath(`disabled-audience-${theme}.png`), fullPage: true });
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.locator('#back').click();
   await expect(page.getByRole('heading', { name: 'Who guides the work?' })).toBeVisible();
   await page.locator('#back').click();
@@ -284,13 +308,16 @@ test('Microsoft 365 audience stays visible and preselected for confirmation or g
   await expect(page.locator('input[name="audience"]')).toHaveCount(3);
   await expect(page.locator('input[value="customers"]')).toBeVisible();
   await expect(page.locator('input[value="both"]')).toBeVisible();
+  await expect(page.locator('input[name="audience"]:disabled')).toHaveCount(0);
+  await expect(page.locator('.choice-unavailable')).toHaveCount(0);
   await expect(page.locator('input[name="audience"]:checked')).toHaveCount(0);
   await page.locator('input[value="customers"]').check();
   await page.getByRole('button', { name: /^Edit The job:/ }).click();
   await page.locator('input[value="knowledge"]').check();
   await page.locator('#continue').click();
   await page.locator('#continue').click();
-  await expect(page.locator('input[name="audience"]')).toHaveCount(1);
+  await expect(page.locator('input[name="audience"]')).toHaveCount(3);
+  await expect(page.locator('input[name="audience"]:enabled')).toHaveCount(1);
   await expect(page.locator('input[value="employees"]')).toBeChecked();
   await page.locator('#continue').click();
   await expect(page.getByRole('alert')).toBeHidden();
@@ -389,21 +416,28 @@ test('selecting channels directly applies and removes multi-channel requirements
 });
 
 for (const audience of ['customers', 'both']) {
-  test(`Microsoft 365 workspace is hidden for ${audience} and restored for employees`, async ({ page }) => {
+  test(`Microsoft 365 workspace is disabled for ${audience} and restored for employees`, async ({ page }) => {
     await page.goto('');
     await journey(page, { job: ['actions'], channels: ['m365', 'web'] });
     await showRequirements(page);
     await page.getByRole('button', { name: /^Edit Audience:/ }).click();
     await page.locator(`input[value="${audience}"]`).check();
     await page.getByRole('button', { name: /^Edit Channels:/ }).click();
-    await expect(page.locator('input[name="channels"]')).toHaveCount(3);
-    await expect(page.locator('input[value="m365"]')).toHaveCount(0);
+    await expect(page.locator('input[name="channels"]')).toHaveCount(4);
+    await expect(page.locator('input[value="m365"]')).toBeVisible();
+    await expect(page.locator('input[value="m365"]')).toBeDisabled();
+    await expect(page.locator('input[value="m365"]')).not.toBeChecked();
+    await expect(page.locator('input[value="m365"]')).toHaveAccessibleDescription(/Choose "Employees" in "Who will use it\?"/);
+    await page.locator('.choice:has(input[value="m365"]) .choice-label').click({ force: true });
+    await expect(page.locator('input[value="m365"]')).not.toBeChecked();
     await expect(page.locator('input[value="web"]')).toBeChecked();
     await expect(page.locator('#answer-summary')).not.toContainText('Microsoft 365 workspace');
     await page.getByRole('button', { name: /^Edit Audience:/ }).click();
     await page.locator('input[value="employees"]').check();
     await page.getByRole('button', { name: /^Edit Channels:/ }).click();
     await expect(page.locator('input[value="m365"]')).toBeVisible();
+    await expect(page.locator('input[value="m365"]')).toBeEnabled();
+    await expect(page.locator('.choice-unavailable')).toHaveCount(0);
     await expect(page.locator('input[value="m365"]')).not.toBeChecked();
     await expect(page.locator('#question-content')).not.toContainText('Outlook');
     await page.locator('input[value="web"]').uncheck();
@@ -415,7 +449,14 @@ for (const audience of ['customers', 'both']) {
     await page.locator('#continue').click();
     await expect(page.getByRole('heading', { name: 'Where does it need to work?' })).toBeVisible();
     await expect(page.locator('input[name="channels"]:checked')).toHaveCount(0);
-    await expect(page.locator('input[value="m365"]')).toHaveCount(0);
+    await expect(page.locator('input[value="m365"]')).toBeDisabled();
+    await page.locator('#continue').click();
+    await expect(page.getByRole('alert')).toHaveText('Choose an option to continue.');
+    await expect(page.locator('input[value="web"]')).toBeFocused();
+    await page.keyboard.press('Space');
+    await page.locator('#continue').click();
+    await journey(page, { job: ['actions'], audience: [audience], channels: ['web'] });
+    await expect(page.locator('.recommended-product')).toHaveAttribute('data-product', 'studio');
   });
 }
 
@@ -474,29 +515,57 @@ test('handover goes directly to the result without integration or lifecycle ques
   await expect(page.locator('#exclusion-reasons [data-product="sdk"]')).toHaveCount(1);
 });
 
-test('no-match result identifies conflicting answers and can be revised', async ({ page }, info) => {
-  await page.goto('');
-  for (const [name, value] of [['job', 'knowledge'], ['ownership', 'organization'], ['audience', 'employees'], ['architecture', 'managed'], ['channels', 'm365']]) {
-    await page.locator(`input[name="${name}"][value="${value}"]`).check();
+for (const [ownership, autonomy, otherOwnership, disabled] of [
+  ['user', 'personal', 'organization', 'organization'],
+  ['organization', 'organization', 'user', 'personal'],
+]) {
+  test(`autonomy choices explain ${ownership} control restrictions and clear incompatible edits`, async ({ page }) => {
+    await page.goto('');
+    await journey(page, { ownership: [ownership], autonomy: [autonomy] });
+    await showRequirements(page);
+    await page.getByRole('button', { name: /^Edit Autonomy:/ }).click();
+    await expect(page.locator('input[name="autonomy"]')).toHaveCount(3);
+    const unavailable = page.locator(`input[value="${disabled}"]`);
+    await expect(unavailable).toBeVisible();
+    await expect(unavailable).toBeDisabled();
+    await expect(unavailable).toHaveAccessibleDescription(/Unavailable\..*Who guides the work\?/);
+    await expect(page.locator(`#autonomy-${disabled}-unavailable`)).toBeVisible();
+    await page.locator(`.choice:has(input[value="${disabled}"]) .choice-label`).click({ force: true });
+    await expect(unavailable).not.toBeChecked();
+    await expect(page.locator(`input[value="${autonomy}"]`)).toBeChecked();
+    await page.locator('input[value="prompted"]').focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(page.locator(`input[value="${autonomy}"]`)).toBeFocused();
+
+    await page.getByRole('button', { name: /^Edit Behavior:/ }).click();
+    await page.locator(`input[value="${otherOwnership}"]`).check();
+    await expect(page.getByRole('button', { name: /^Edit Autonomy:/ })).toHaveCount(0);
+    const context = new URL((await page.locator('#context-feedback-link').getAttribute('href'))!).searchParams.get('context')!;
+    expect(context).not.toContain('- Autonomy:');
+    for (let index = 0; index < 4; index += 1) await page.locator('#continue').click();
+    await expect(page.locator('input[name="autonomy"]:checked')).toHaveCount(0);
+    await expect(page.locator(`input[value="${autonomy}"]`)).toBeDisabled();
+    await expect(page.locator(`input[value="${disabled}"]`)).toBeEnabled();
     await page.locator('#continue').click();
-  }
-  await page.locator('input[name="autonomy"][value="personal"]').check();
-  await expect(page.locator('#shortlist-count')).toHaveText('0');
-  await expect(page.locator('#continue')).toHaveText('Review requirements');
-  await page.locator('#continue').click();
-  await expect(page.locator('.result-heading')).toHaveText('No platform meets the current requirements');
-  await expect(page.locator('.recommended-product')).toHaveCount(0);
-  await expect(page.locator('.alternative')).toHaveCount(0);
-  await expect(page.locator('#result')).toContainText('Clarify which behavior');
-  await page.screenshot({ path: info.outputPath('no-match-review.png'), fullPage: true });
-  await showRequirements(page);
-  await page.getByRole('button', { name: /^Edit Behavior:/ }).click();
-  await page.locator('input[value="user"]').check();
-  await expect(page.locator('#shortlist-count')).toHaveText('3');
-  await journey(page, { autonomy: ['personal'] });
-  await expect(page.locator('.recommended-product')).toHaveAttribute('data-product', 'cowork');
-  await expect(page.locator('.result-status')).toHaveText('Needs review');
-});
+    await expect(page.getByRole('alert')).toHaveText('Choose an option to continue.');
+    await expect(page.locator('input[value="prompted"]')).toBeFocused();
+    await expect(page.locator('#result')).toBeHidden();
+
+    await page.getByRole('button', { name: /^Edit Behavior:/ }).click();
+    await page.locator(`input[value="${ownership}"]`).check();
+    for (let index = 0; index < 4; index += 1) await page.locator('#continue').click();
+    await expect(page.locator(`input[value="${autonomy}"]`)).toBeEnabled();
+    await expect(page.locator('input[name="autonomy"]:checked')).toHaveCount(0);
+    await page.locator('input[value="prompted"]').check();
+    await page.locator('#continue').click();
+    await expect(page.locator('#result')).toBeVisible();
+    await page.getByRole('button', { name: /^Edit Behavior:/ }).click();
+    await page.locator(`input[value="${otherOwnership}"]`).check();
+    await page.getByRole('button', { name: /^Edit Autonomy:/ }).click();
+    await expect(page.locator('input[value="prompted"]')).toBeChecked();
+    await expect(page.locator('input:disabled:checked')).toHaveCount(0);
+  });
+}
 
 test('comparison works without JS, base-aware assets and links load', async ({ browser, baseURL }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });

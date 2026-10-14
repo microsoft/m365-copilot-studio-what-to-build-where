@@ -27,8 +27,8 @@ export function feedbackUrl(request: FeedbackRequest = { kind: 'general' }): str
     url.searchParams.set('title', `[Feedback] ${question.title}`);
     context.push('', `Current step: ${question.title}`);
     if (!flow.answers[question.id]?.length) {
-      context.push(!question.multiple && question.choices.length === 1
-        ? `Displayed selection (not yet confirmed): ${question.choices[0].label}`
+      context.push(question.singleEnabledChoice
+        ? `Displayed selection (not yet confirmed): ${question.singleEnabledChoice.label}`
         : 'Current step has no selection.');
     }
   } else {

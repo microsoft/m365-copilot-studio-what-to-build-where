@@ -61,17 +61,24 @@ test('autonomy does not get routed to prompted-only products', () => {
   assert.equal(organization.status, 'recommended');
 });
 
-test('contradictory ownership and autonomy choices are never forced into a winner', () => {
+test('contradictory autonomy is cleared before recommendation, with defensive candidate checks retained', () => {
   for (const override of [
     { ownership: ['user'], autonomy: ['organization'] },
     { ownership: ['organization'], autonomy: ['personal'] },
   ]) {
-    const result = recommend({ ...base, ...override });
-    assert.equal(result.status, 'review');
-    assert.ok(result.issues.length > 0);
+    const input = { ...base, ...override };
+    const raw = assessCandidates(input);
+    assert.equal(raw.active.length, 0);
+    assert.ok(raw.issues.length > 0);
+    const flow = getFlow(input);
+    assert.equal(flow.answers.autonomy, undefined);
+    assert.ok(!flow.summary.some(answer => answer.id === 'autonomy'));
+    assert.deepEqual(flow.missing.map(question => question.id), ['autonomy']);
+    const result = recommend(input);
+    assert.equal(result.status, 'incomplete');
+    assert.ok(result.issues.some(issue => issue.includes('Does it need to act without a prompt?')));
     assert.equal(result.primary, undefined);
-    assert.equal(result.alternatives.length, 0);
-    assert.equal(result.excluded.length, 6);
+    assert.ok(result.alternatives.length > 0);
   }
 });
 
@@ -274,12 +281,15 @@ test('employee-directed business actions retain Cowork subject to plugin confirm
   assert.equal(recommend({ ...base, job: ['actions'], audience: ['customers'], channels: ['web'] }).primary?.product.id, 'studio');
 });
 
-test('customer audiences hide Microsoft 365 workspace and prune only that channel', () => {
-  assert.ok(getFlow({}).questions.find(question => question.id === 'channels')?.choices.some(choice => choice.id === 'm365'));
+test('customer audiences disable Microsoft 365 workspace and prune only that channel', () => {
+  assert.equal(getFlow({}).questions.find(question => question.id === 'channels')?.choices[0].disabledReason, undefined);
   for (const audience of ['customers', 'both']) {
     const employee = getFlow({ ...base, job: ['actions'], channels: ['m365', 'web'] });
     const changed = getFlow({ ...employee.answers, audience: [audience] });
-    assert.deepEqual(changed.questions.find(question => question.id === 'channels')?.choices.map(choice => choice.id), ['web', 'voice', 'handover']);
+    const choices = changed.questions.find(question => question.id === 'channels')!.choices;
+    assert.deepEqual(choices.map(choice => choice.id), ['m365', 'web', 'voice', 'handover']);
+    assert.match(choices[0].disabledReason!, /Choose "Employees" in "Who will use it\?"/);
+    assert.ok(choices.slice(1).every(choice => !choice.disabledReason));
     assert.deepEqual(changed.answers.channels, ['web']);
     assert.equal(hasMultipleChannels(changed.answers), false);
     assert.equal(changed.summary.find(answer => answer.id === 'channels')?.value, 'A website or custom app');
@@ -289,20 +299,25 @@ test('customer audiences hide Microsoft 365 workspace and prune only that channe
     assert.ok(empty.missing.some(question => question.id === 'channels'));
     assert.equal(recommend(empty.answers).status, 'incomplete');
     const restored = getFlow({ ...changed.answers, audience: ['employees'] });
-    assert.ok(restored.questions.find(question => question.id === 'channels')?.choices.some(choice => choice.id === 'm365'));
+    assert.equal(restored.questions.find(question => question.id === 'channels')?.choices[0].disabledReason, undefined);
     assert.deepEqual(restored.answers.channels, ['web']);
     const sdk = getFlow({ ...changed.answers, architecture: ['own'] });
-    assert.ok(!sdk.questions.find(question => question.id === 'channels')?.choices.some(choice => choice.id === 'm365'));
+    assert.ok(sdk.questions.find(question => question.id === 'channels')?.choices[0].disabledReason);
   }
 });
 
 test('the Microsoft 365 job restricts audience choices and clears incompatible answers', () => {
   for (const job of jobCombinations) {
     const flow = getFlow({ job });
-    assert.deepEqual(
-      flow.questions.find(question => question.id === 'audience')?.choices.map(choice => choice.id),
-      job.includes('knowledge') ? ['employees'] : ['employees', 'customers', 'both'],
-    );
+    const audience = flow.questions.find(question => question.id === 'audience')!;
+    assert.deepEqual(audience.choices.map(choice => choice.id), ['employees', 'customers', 'both']);
+    assert.deepEqual(audience.choices.filter(choice => !choice.disabledReason).map(choice => choice.id),
+      job.includes('knowledge') ? ['employees'] : ['employees', 'customers', 'both']);
+    assert.equal(audience.singleEnabledChoice?.id, job.includes('knowledge') ? 'employees' : undefined);
+    assert.equal(flow.answers.audience, undefined);
+    if (job.includes('knowledge')) {
+      assert.ok(audience.choices.slice(1).every(choice => choice.disabledReason?.includes('employee-only')));
+    }
   }
   for (const audience of ['customers', 'both']) {
     const customer = getFlow({ ...base, job: ['actions'], audience: [audience], channels: ['web'] });
@@ -313,7 +328,7 @@ test('the Microsoft 365 job restricts audience choices and clears incompatible a
     assert.deepEqual(changed.missing.map(question => question.id), ['audience']);
     assert.equal(recommend(changed.answers).status, 'incomplete');
     const restored = getFlow({ ...changed.answers, job: ['actions'] });
-    assert.equal(restored.questions.find(question => question.id === 'audience')?.choices.length, 3);
+    assert.ok(restored.questions.find(question => question.id === 'audience')?.choices.every(choice => !choice.disabledReason));
     assert.equal(restored.answers.audience, undefined);
     const corrected = getFlow({ ...changed.answers, audience: ['employees'] });
     assert.deepEqual(corrected.answers.audience, ['employees']);
@@ -341,19 +356,34 @@ test('candidate exclusions remove irrelevant follow-ups and their stale values',
   assert.equal(recommend(edited.answers).status, 'incomplete');
 });
 
-test('incompatible answers produce an early no-match result and editing restores candidates', () => {
-  const blocked = getFlow({ ...base, job: ['actions', 'reasoning'], ownership: ['organization'], autonomy: ['personal'] });
-  assert.equal(blocked.shortlist.active.length, 0);
-  assert.equal(blocked.questions.length, 6);
-  const result = recommend(blocked.answers);
-  assert.equal(result.status, 'review');
-  assert.equal(result.primary, undefined);
-  assert.equal(result.alternatives.length, 0);
-  const revised = getFlow({ ...blocked.answers, ownership: ['user'] });
-  assert.equal(revised.shortlist.active.length, 3);
-  assert.equal(revised.questions.length, 6);
-  assert.equal(recommend(revised.answers).status, 'review');
-  assert.equal(recommend(revised.answers).primary?.product.id, 'cowork');
+test('autonomy availability follows explicit control and edits never restore discarded selections', () => {
+  const unanswered = getFlow({}).questions.find(question => question.id === 'autonomy')!;
+  assert.ok(unanswered.choices.every(choice => !choice.disabledReason));
+  assert.equal(unanswered.singleEnabledChoice, undefined);
+  for (const [ownership, autonomy, otherOwnership, disabled] of [
+    ['user', 'personal', 'organization', 'organization'],
+    ['organization', 'organization', 'user', 'personal'],
+  ]) {
+    const initial = getFlow({ ...base, ownership: [ownership], autonomy: [autonomy] });
+    assert.notEqual(recommend(initial.answers).status, 'incomplete');
+    const question = initial.questions.find(question => question.id === 'autonomy')!;
+    assert.deepEqual(question.choices.map(choice => choice.id), ['prompted', 'personal', 'organization']);
+    assert.deepEqual(question.choices.filter(choice => choice.disabledReason).map(choice => choice.id), [disabled]);
+    assert.match(question.choices.find(choice => choice.id === disabled)!.disabledReason!, /Who guides the work\?/);
+    assert.equal(question.singleEnabledChoice, undefined);
+    const changed = getFlow({ ...initial.answers, ownership: [otherOwnership] });
+    assert.equal(changed.answers.autonomy, undefined);
+    assert.deepEqual(changed.answers.channels, base.channels);
+    assert.equal(recommend(changed.answers).status, 'incomplete');
+    const restored = getFlow({ ...changed.answers, ownership: [ownership] });
+    assert.equal(restored.questions.find(question => question.id === 'autonomy')?.choices.find(choice => choice.id === autonomy)?.disabledReason, undefined);
+    assert.equal(restored.answers.autonomy, undefined);
+    assert.equal(recommend(restored.answers).status, 'incomplete');
+    const corrected = getFlow({ ...changed.answers, autonomy: ['prompted'] });
+    assert.deepEqual(corrected.answers.autonomy, ['prompted']);
+    assert.deepEqual(getFlow({ ...corrected.answers, ownership: [ownership] }).answers.autonomy, ['prompted']);
+    assert.notEqual(recommend(corrected.answers).status, 'incomplete');
+  }
 });
 
 test('exhaustive combinations never mark blocked or unconfirmed must-haves as recommended', () => {
@@ -380,9 +410,10 @@ test('exhaustive combinations never mark blocked or unconfirmed must-haves as re
       answers.channels?.length === 1 && answers.channels[0] === 'm365';
     const conflictingControl = (ownership === 'user' && autonomy === 'organization') ||
       (ownership === 'organization' && autonomy === 'personal');
-    if ((incompatibleAudience || missingChannel) && !conflictingControl) {
+    if (incompatibleAudience || missingChannel || conflictingControl) {
       assert.equal(result.status, 'incomplete');
-      assert.ok(result.issues.some(issue => issue.includes(incompatibleAudience ? 'Who will use it?' : 'Where does it need to work?')));
+      assert.ok(result.issues.some(issue => issue.includes(incompatibleAudience ? 'Who will use it?' :
+        missingChannel ? 'Where does it need to work?' : 'Does it need to act without a prompt?')));
     } else {
       assert.notEqual(result.status, 'incomplete');
       assert.ok(result.primary?.reasons.length || result.status === 'review');

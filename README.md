@@ -35,8 +35,9 @@ step/result URLs continue to populate their fields.
 
 Links use GitHub issue-form URL parameters keyed by field ID. Contextual links contain the
 current normalized selections and question, or the result with its platform and
-items to validate. Hidden/stale selections are omitted; a displayed single-option
-default is identified as unconfirmed until Continue records it. This is a snapshot
+items to validate. Disabled, irrelevant, or stale selections are omitted. When only
+one option is enabled, its displayed default is identified as unconfirmed until
+Continue records it. This is a snapshot
 of current requirements, not a click history. General feedback sends no answers.
 Prefilled fields use text inputs and textareas. The editable context appears before the questions asking for
 feedback; those questions remain blank for the visitor to complete.
@@ -92,7 +93,7 @@ capabilities produce a **Needs review** result rather than an unqualified winner
 - `src/data/guidance.ts`: question definitions, six products, watch-outs,
   and confirmation notes.
 - `src/lib/candidates.ts`: partial-answer capability checks and requirement conflicts.
-- `src/lib/flow.ts`: relevant questions and choices, normalized answers,
+- `src/lib/flow.ts`: relevant questions, choice availability, normalized answers,
   and the live shortlist.
 - `src/lib/recommend.ts`: deterministic selection from remaining candidates.
 - `src/scripts/finder.ts`: in-memory answers, navigation, rendering, focus.
@@ -102,7 +103,7 @@ capabilities produce a **Needs review** result rather than an unqualified winner
 Every answer updates three groups: **Still applicable**, **Requires confirmation**,
 and **Excluded**. Unanswered questions impose no restrictions. Confirmations stay
 in the active shortlist; exclusions include reasons and are reconsidered when
-answers change. Contradictory requirements produce an early no-match review.
+answers change. If no platform remains, the guide presents a no-match review.
 The sidebar switches between **Platform shortlist** (the default) and **Your
 requirements** using keyboard-accessible tabs. Both views preserve the current
 answers and update as selections change.
@@ -131,6 +132,10 @@ Cowork subject to plugin confirmation; user direction alone does not select it.
 Editing the selected jobs preserves the explicit control answer.
 Approved organizational content can be used in either operating model; this
 question concerns who determines the agent's next actions and required paths.
+Autonomy choices follow this answer: user-guided work disables organization-owned
+autonomy, and organization-guided work disables personal autonomy. Prompted-only
+work remains available for either. Changing control clears an incompatible
+autonomy answer and requires a new selection before showing a recommendation.
 
 The architecture choice is a requirement: a platform-managed runtime excludes
 Microsoft 365 Agents SDK because the team must supply and operate its runtime.
@@ -138,25 +143,31 @@ Choosing your own models/orchestration retains SDK and excludes managed options.
 Changing or clearing this answer reevaluates the shortlist and result.
 
 Audience is the third question. The Microsoft 365 knowledge/guidance job is
-explicitly employee-facing: selecting it, alone or with other jobs, hides both
+explicitly employee-facing: selecting it, alone or with other jobs, disables both
 customer audience choices. The audience step remains visible with Employees
 preselected and an explanation, so visitors can continue or go back.
 Continue records the selection; going back before confirming leaves it unanswered.
 Adding that job clears an incompatible audience answer and requires confirmation;
-removing it restores the customer choices.
+removing it re-enables the customer choices without restoring a previous selection.
 This is the scope of the job option, rather than a universal restriction on
 agents that use Microsoft 365 knowledge sources.
 
 Multi-channel requirements follow from selecting more than one of Microsoft 365,
 website/custom app, and voice. Live-human handover is a service capability and
 does not count as an additional channel.
-Microsoft 365 workspace is available for employee-only audiences and hidden for
+Microsoft 365 workspace is available for employee-only audiences and disabled for
 customer-only or mixed audiences. Changing audience removes an incompatible
 Microsoft 365 channel selection while retaining other selected channels.
 The channel description lists Microsoft 365 Copilot and Teams; Outlook remains
 only in the preserved source drafts, pending confirmation of support.
 
-Follow-up visibility is evaluated from earlier answers and the candidates still
+All answer choices stay visible in their original order. Unavailable options use
+native disabled controls and a brief inline explanation identifying the earlier
+answer to change. Explanations remain visible on touch devices and in screen-reader
+reading mode; no tooltip is required. Unanswered prerequisites do not disable options.
+Only enabled choices can be recorded or used as a displayed default.
+
+Whole-question visibility is evaluated from earlier answers and the candidates still
 active at that point. API/MCP integration questions disappear once Toolkit is
 excluded. There is no new/existing-agent question or lifecycle-based routing.
 Standard Harness limitations highlight the preference for GitHub Copilot Harness

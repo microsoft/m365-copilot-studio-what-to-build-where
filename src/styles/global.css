@@ -92,14 +92,16 @@ h1 { max-width: 42ch; font-size: clamp(28px, 3vw, 36px); line-height: 1.2; lette
 .question-hint { color: var(--muted); font-size: 13px; margin: 10px 0 24px; }
 .choices { border-top: 1px solid var(--border); }
 .choice { display: flex; gap: 14px; align-items: flex-start; padding: 20px 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
-.choice:hover { background: var(--surface-2); }
-.choice:has(input:checked) { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
-.choice:has(input:checked) .choice-label { color: var(--accent-text); }
+.choice:has(input:enabled):hover { background: var(--surface-2); }
+.choice:has(input:enabled:checked) { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
+.choice:has(input:enabled:checked) .choice-label { color: var(--accent-text); }
+.choice:has(input:disabled) { cursor: not-allowed; color: var(--muted); }
 .choice:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 3px; }
 .choice input:focus-visible { outline: none; }
 .choice input { flex-shrink: 0; width: 17px; height: 17px; margin: 3px 0 0; accent-color: var(--accent); }
 .choice-label { font-size: 15px; font-weight: 500; display: block; line-height: 1.45; }
 .choice-detail { font-size: 13px; color: var(--muted); display: block; margin-top: 4px; line-height: 1.55; }
+.choice-unavailable { font-size: 12px; color: var(--fg); display: block; margin-top: 8px; line-height: 1.55; }
 .question-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-top: 24px; }
 .button { display: inline-flex; align-items: center; justify-content: center; gap: 14px; padding: 10px 20px; min-height: 44px; border-radius: 4px; font-size: 13px; font-weight: 500; border: 1px solid var(--border); text-decoration: none; }
 .button-primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }

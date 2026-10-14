@@ -50,7 +50,7 @@ app session with a local Git repository.
   User direction alone does not select Cowork; business actions retain it subject
   to plugin confirmation. Preserve explicit control when jobs change.
 - User-directed scope: the Microsoft 365 knowledge/guidance job is employee-facing.
-  Audience is third. Selecting that job, alone or in a combination, hides both
+  Audience is third. Selecting that job, alone or in a combination, disables both
   customer choices and clears incompatible audience answers. This restriction
   belongs to the job option, not the channel or all Microsoft 365-grounded agents.
   Keep the audience step with Employees preselected and explain the restriction.
@@ -62,10 +62,19 @@ app session with a local Git repository.
   and disabled when empty. Reset returns to the first question and full shortlist.
 - Derive multi-channel requirements from selected delivery options; do not offer
   a separate multi-channel checkbox. Handover does not count as a channel.
-- Hide Microsoft 365 workspace for customer-only and mixed audiences; keep it
+- Disable Microsoft 365 workspace for customer-only and mixed audiences; keep it
   for employees. Clear incompatible channel selections when audience changes.
   Outlook was supplied in the source drafts but is unverified; omit it from UI
   channel descriptions while preserving the original source documents.
+- User-directed convention: keep incompatible choices visible in their original
+  order with native disabled controls and brief inline explanations; no tooltips.
+  Skip whole irrelevant questions. Resolve availability from earlier normalized
+  answers, reject disabled values, and never restore cleared selections automatically.
+  Count enabled choices for visual defaults; UI and feedback share flow metadata.
+  Issue #2: user control disables organization-owned autonomy; organization control
+  disables personal autonomy. Prompted-only stays valid for both. Changing control
+  clears incompatible autonomy and requires a new answer, rather than producing
+  a no-match result. Raw candidate conflict checks remain defensive validation.
 - Fixed rules do not imply Standard; website embedding does not imply SDK;
   prompt-only does not imply Agent Builder. These are tested distinctions.
 - User-directed refinement: onboarding is a process, not inherently an FAQ.
