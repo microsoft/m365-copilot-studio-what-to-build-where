@@ -1,4 +1,4 @@
-import { questions, type Answers, type Choice, type Question, type QuestionId } from '../data/guidance';
+import { getApproach, questions, type Answers, type Choice, type Question, type QuestionId } from '../data/guidance';
 import { assessCandidates } from './candidates';
 
 export interface SummaryAnswer {
@@ -37,8 +37,8 @@ export function getFlow(input: Answers) {
       singleEnabledChoice: !definition.multiple && enabledChoices.length === 1 ? enabledChoices[0] : undefined,
     };
     visible.push(question);
-    const values = [...new Set(input[question.id] ?? [])].filter(value =>
-      enabledChoices.some(choice => choice.id === value));
+    const values = enabledChoices.filter(choice => input[question.id]?.includes(choice.id))
+      .map(choice => choice.id);
     if (!values.length || (!question.multiple && values.length !== 1)) continue;
     answers[question.id] = values;
     summary.push({
@@ -48,6 +48,7 @@ export function getFlow(input: Answers) {
   }
   return {
     answers,
+    approach: getApproach(answers),
     questions: visible,
     summary,
     shortlist: assessCandidates(answers),

@@ -1,6 +1,44 @@
 export type ProductId = 'builder' | 'studio' | 'standard' | 'cowork' | 'toolkit' | 'sdk';
-export type QuestionId = 'job' | 'audience' | 'ownership' | 'architecture' | 'channels' | 'autonomy' | 'integration';
+export type QuestionId = 'approach' | 'job' | 'audience' | 'ownership' | 'architecture' | 'channels' | 'autonomy' | 'integration';
 export type Answers = Partial<Record<QuestionId, string[]>>;
+
+export interface Approach {
+  id: 'employee' | 'automation' | 'custom';
+  label: string;
+  detail: string;
+  scope: string;
+  products: readonly ProductId[];
+}
+
+export const approaches: readonly Approach[] = [
+  {
+    id: 'employee',
+    label: 'Employee-guided work in Microsoft 365',
+    detail: 'The employee asks questions or directs work across apps. The organization governs knowledge, connectors, plugins, and skills.',
+    scope: 'Employee-directed work in Microsoft 365, with organizational governance of access and building blocks. The employee chooses the sequence of work.',
+    products: ['builder', 'cowork'],
+  },
+  {
+    id: 'automation',
+    label: 'Organization-designed business process automation',
+    detail: 'The organization designs a repeatable business process that may include conversational experiences, workflows, or both, using governed tools, integrations, and agentic reasoning.',
+    scope: 'Organization-designed repeatable business processes that may include conversational experiences, workflows, or both. This guidance currently covers the two Copilot Studio harnesses in this approach; the category is broader than these platforms.',
+    products: ['studio', 'standard'],
+  },
+  {
+    id: 'custom',
+    label: 'Deeper customization and control',
+    detail: 'The organization requires greater control over integrations, models, orchestration, hosting, channels, or software delivery.',
+    scope: 'The organization requires deeper technical control. Professional developers implement, secure, test, and operate the integrations or runtime.',
+    products: ['toolkit', 'sdk'],
+  },
+];
+
+export function getApproach(answers: Answers): Approach | undefined {
+  return answers.approach?.length === 1
+    ? approaches.find(approach => approach.id === answers.approach?.[0])
+    : undefined;
+}
 
 export const relatedGuidance = {
   title: 'Related guidance',
@@ -30,8 +68,8 @@ export const products: Product[] = [
     id: 'studio', name: 'Copilot Studio', shortName: 'Copilot Studio · GitHub Copilot Harness', category: 'GitHub Copilot Harness',
     summary: 'Build an organization-designed agent for complex work.',
     goodFor: 'New business agents with reasoning, document processing, tool use, and organization-owned automation.',
-    watch: ['If you are extending an existing Copilot Studio agent that uses the Standard Harness, consider retaining that harness for its existing topics and integrations.', 'Budget for multistep execution and autonomous work; assign an owner to review outcomes.', 'The draft does not provide live-human handover for this harness.'],
-    review: ['Confirm supported channels and voice availability.', 'Validate the draft claims about reasoning models, recovery behavior, and per-request costs against current product documentation.'],
+    watch: ['If you are extending an existing Copilot Studio agent that uses the Standard Harness, consider retaining that harness for its existing topics and integrations.', 'Budget for multistep execution and autonomous work; assign an owner to review outcomes.', 'Voice and live-human handover are not supported by this harness. Use Copilot Studio Standard Harness for those requirements.'],
+    review: ['Confirm the required non-voice publishing channels and channel combinations.', 'Validate the draft claims about reasoning models, recovery behavior, and per-request costs against current product documentation.'],
   },
   {
     id: 'standard', name: 'Copilot Studio', shortName: 'Copilot Studio · Standard Harness', category: 'Standard Harness',
@@ -63,6 +101,40 @@ export const products: Product[] = [
   },
 ];
 
+export const prerequisiteTitle = 'What you need in place: prerequisites and next steps';
+export const prerequisiteNotice = 'These checks remain to be completed. They were not confirmed by your assessment answers.';
+export const prerequisites: Record<ProductId, string[]> = {
+  builder: [
+    'Confirm Microsoft 365 access, approved knowledge sources, connector availability, permissions, and sharing policies.',
+    'Validate answer quality, maker telemetry, and lifecycle requirements. Business-system writes or unprompted execution need another route.',
+  ],
+  cowork: [
+    'Confirm access to the required apps and centrally managed connectors, plugins, and skills, including permissions for business-system actions.',
+    'Validate scheduling or event-trigger availability if needed. The employee must direct the work; prescribed end-to-end processes need the organization-designed approach.',
+    'Set expectations for reviewing generated documents, outputs, and completed actions.',
+  ],
+  studio: [
+    'Define conversation behavior, process ownership, required steps, approvals, tools, knowledge, and integration permissions.',
+    'Confirm the required non-voice publishing channels. Voice and live-human handover require the Standard Harness in this guidance.',
+    'Pilot reasoning and document workloads, estimate consumption, and establish evaluations, ALM, monitoring, and controls for autonomous execution.',
+  ],
+  standard: [
+    'Validate the exact publishing, voice, speech/DTMF, and live-human handover integrations required.',
+    'Confirm support for complex reasoning, document processing, autonomous triggers, and execution behavior if the process needs them.',
+    'Review existing topics and integrations, configure evaluations and monitoring, and assess GitHub Copilot Harness for new agents without Standard-specific requirements.',
+  ],
+  toolkit: [
+    'Confirm the intended prompted, employee-facing Microsoft 365 Copilot agent type and current API/MCP integration, grounding, and tooling support.',
+    'Own API/MCP hosting, app registrations, scopes, permissions, authentication, integration testing, telemetry, and support.',
+    'Plan source control and deployment. Deterministic workflows require code or an external workflow service; unprompted execution is outside this option’s draft scope.',
+  ],
+  sdk: [
+    'Select and implement AI services, models, orchestration, hosting, security, and conversation handling.',
+    'Validate audience access and implement each required channel. Voice, human handover, and scheduling/event triggers are not supplied merely by choosing the SDK.',
+    'Own testing, evaluations, deployment, monitoring, support, compliance, and responsible AI. Confirm current roadmap constraints for the intended scenario.',
+  ],
+};
+
 export interface Choice {
   id: string;
   label: string;
@@ -88,8 +160,14 @@ export const hasMultipleChannels = (answers: Answers): boolean =>
 
 export const questions: Question[] = [
   {
+    id: 'approach', label: 'Approach', title: 'Which approach does your scenario require?',
+    hint: 'Choose how the work will be directed and delivered. Each approach narrows the assessment to two currently covered platforms.',
+    choices: approaches.map(({ id, label, detail }) => ({ id, label, detail })),
+  },
+  {
     id: 'job', label: 'The job', title: 'What does the agent need to do?',
     hint: 'Select all that apply. The platform needs to support the combined requirements of the work.',
+    when: a => has(a, 'approach', 'employee'),
     multiple: true,
     choices: [
       { id: 'knowledge', label: 'Answer questions or guide people in Microsoft 365', detail: 'Answer employees’ policy questions or explain process steps using Microsoft 365 content. Also select business-system actions if the agent must carry out those steps.' },
@@ -98,42 +176,28 @@ export const questions: Question[] = [
     ],
   },
   {
-    id: 'ownership', label: 'Behavior', title: 'Who guides the work?',
-    hint: 'Choose who determines what the agent does next. Both approaches can use approved organizational content and act in business systems.',
-    choices: [
-      { id: 'organization', label: 'The organization', detail: 'The agent must follow organization-defined steps, checks, and escalation paths, such as coordinating onboarding tasks and approvals.' },
-      { id: 'user', label: 'The person doing the work', detail: 'The person directs each task within organizational policies, permissions, and centrally managed plugins and skills.' },
-    ],
-  },
-  {
     id: 'audience', label: 'Audience', title: 'Who will use it?',
-    hint: 'Identify everyone who needs access. The Microsoft 365 job is employee-facing; other jobs can also serve customers.',
-    singleChoiceHint: 'Your Microsoft 365 job selection limits this experience to employees. Go back to change the selected jobs.',
+    hint: 'Identify everyone who needs access so the available delivery options match the audience.',
+    when: a => has(a, 'approach', 'automation'),
     choices: [
       { id: 'employees', label: 'Employees', detail: 'People inside your organization, using Microsoft 365 or an internal app.' },
-      {
-        id: 'customers', label: 'Customers', detail: 'Customers or other external users, such as visitors to a public website.',
-        disabledReason: a => has(a, 'job', 'knowledge')
-          ? 'The Microsoft 365 job is employee-only. Change the selected jobs.' : undefined,
-      },
-      {
-        id: 'both', label: 'Employees and customers', detail: 'One solution serving internal and external users, with suitable access for each.',
-        disabledReason: a => has(a, 'job', 'knowledge')
-          ? 'The Microsoft 365 job is employee-only. Change the selected jobs.' : undefined,
-      },
+      { id: 'customers', label: 'Customers', detail: 'Customers or other external users, such as visitors to a public website.' },
+      { id: 'both', label: 'Employees and customers', detail: 'One solution serving internal and external users, with suitable access for each.' },
     ],
   },
   {
-    id: 'architecture', label: 'Architecture', title: 'Do you need your own models or orchestration?',
-    hint: 'Orchestration controls reasoning and tool use. A platform-managed agent can also be embedded in a website or custom client.',
+    id: 'architecture', label: 'Development model', title: 'Which development model do you need?',
+    hint: 'Choose the scope your team must implement and operate. Review the responsibilities and remaining checks in the result.',
+    when: a => has(a, 'approach', 'custom'),
     choices: [
-      { id: 'managed', label: 'No, we need a platform-managed runtime', detail: 'Use the platform’s models and orchestration, with supported tools and integrations.' },
-      { id: 'own', label: 'Yes, we must choose and run our own', detail: 'Developers select the AI services and orchestration libraries, and own hosting and security.' },
+      { id: 'managed', label: 'A Microsoft 365 Copilot agent with developer-owned integrations', detail: 'Prompted, employee-facing work using Microsoft 365 Copilot models and orchestration. Developers own instructions, API/MCP integrations, testing, and deployment.' },
+      { id: 'own', label: 'An agent with a developer-owned runtime', detail: 'Choose and operate your models and orchestration, or build one backend for Microsoft 365 and other channels. Your team owns hosting and security.' },
     ],
   },
   {
     id: 'channels', label: 'Channels', title: 'Where does it need to work?',
     hint: 'Select every required channel and service capability. Confirm channel support and admin approvals, including voice and live-human handover.',
+    when: a => has(a, 'approach', 'automation'),
     multiple: true,
     choices: [
       {
@@ -142,35 +206,17 @@ export const questions: Question[] = [
           ? 'Choose "Employees" in "Who will use it?" to enable this channel.' : undefined,
       },
       { id: 'web', label: 'A website or custom app', detail: 'Embed an agent in your own website or client for customers or employees.' },
-      { id: 'voice', label: 'Voice', detail: 'People speak to the agent. Confirm speech and any telephone keypad requirements.' },
-      { id: 'handover', label: 'Handover to a live human', detail: 'Transfer the conversation to a human service agent when needed.' },
+      { id: 'voice', label: 'Voice', detail: 'People speak to the agent. Requires Copilot Studio Standard Harness; confirm speech and any telephone keypad requirements.' },
+      { id: 'handover', label: 'Handover to a live human', detail: 'Transfer the conversation to a human service agent. Requires Copilot Studio Standard Harness.' },
     ],
   },
   {
     id: 'autonomy', label: 'Autonomy', title: 'Does it need to act without a prompt?',
-    hint: 'Consider future schedules and event triggers. Autonomous work needs action logs, named owners, approval for high-impact steps, and a way to stop it.',
+    hint: 'Consider schedules and event triggers for the employee’s work. Availability still needs confirmation in your environment.',
+    when: (a, candidates) => has(a, 'approach', 'employee') && !!a.job?.length && candidates.includes('builder'),
     choices: [
-      { id: 'prompted', label: 'No, only when someone asks', detail: 'Every task starts with a person’s prompt, and this will remain true for the agent’s lifetime.' },
-      {
-        id: 'personal', label: 'Yes, for an employee’s own work', detail: 'Scheduled or event-driven tasks that the employee directs.',
-        disabledReason: a => has(a, 'ownership', 'organization')
-          ? 'Choose "The person doing the work" in "Who guides the work?" to enable this option.' : undefined,
-      },
-      {
-        id: 'organization', label: 'Yes, as an organization-owned process', detail: 'The organization defines triggers, required steps, monitoring, and accountability for background work.',
-        disabledReason: a => has(a, 'ownership', 'user')
-          ? 'Choose "The organization" in "Who guides the work?" to enable this option.' : undefined,
-      },
-    ],
-  },
-  {
-    id: 'integration', label: 'Integrations', title: 'How do you want to connect business systems?',
-    hint: 'Choose how integrations will be built and maintained. Pre-authored workflows can combine fixed-rule steps with agentic work.',
-    when: (a, candidates) => has(a, 'job', 'actions') && has(a, 'channels', 'm365') &&
-      has(a, 'architecture', 'managed') && candidates.includes('toolkit'),
-    choices: [
-      { id: 'connectors', label: 'Use platform connectors and workflows', detail: 'Build business actions and pre-authored steps in a low-code tool.' },
-      { id: 'apis', label: 'Use our own APIs or MCP servers', detail: 'Developers own integration code, authentication, testing, and deployment. Fixed-rule workflows use code or an external service.' },
+      { id: 'prompted', label: 'No, only when someone asks', detail: 'Every task starts with a person’s prompt. Unprompted execution is not required.' },
+      { id: 'personal', label: 'Yes, on a schedule or when an event occurs', detail: 'Start tasks automatically rather than waiting for a prompt. Confirm the required trigger is available.' },
     ],
   },
 ];

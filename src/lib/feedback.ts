@@ -1,4 +1,4 @@
-import { type Answers, type QuestionId } from '../data/guidance';
+import { prerequisiteNotice, prerequisites, prerequisiteTitle, type Answers, type QuestionId } from '../data/guidance';
 import { getFlow } from './flow';
 import { recommend } from './recommend';
 
@@ -19,6 +19,7 @@ export function feedbackUrl(request: FeedbackRequest = { kind: 'general' }): str
   const context = ['Agent platform guidance (Draft)', '', 'Current selected requirements:'];
   if (!flow.summary.length) context.push('No answers recorded.');
   flow.summary.forEach(answer => context.push(`- ${answer.label}: ${answer.value}`));
+  if (flow.approach) context.push('', `Selected approach scope: ${flow.approach.scope}`);
 
   if (request.kind === 'step') {
     const question = flow.questions.find(question => question.id === request.questionId);
@@ -39,6 +40,8 @@ export function feedbackUrl(request: FeedbackRequest = { kind: 'general' }): str
       `Platform: ${result.primary?.product.shortName ?? 'No single recommendation'}`);
     const notes = [...new Set([...result.issues, ...(result.primary?.confirmations ?? []), ...(result.primary?.product.review ?? [])])];
     if (notes.length) context.push('', 'Requirements and items to validate:', ...notes.map(note => `- ${note}`));
+    if (result.primary) context.push('', prerequisiteTitle, prerequisiteNotice,
+      ...prerequisites[result.primary.product.id].map(note => `- ${note}`));
   }
   url.searchParams.set('context', context.join('\n'));
   return url.href;

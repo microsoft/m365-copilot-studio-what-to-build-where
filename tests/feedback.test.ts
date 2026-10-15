@@ -5,18 +5,13 @@ import { type Answers } from '../src/data/guidance';
 import { feedbackUrl } from '../src/lib/feedback';
 import { recommend } from '../src/lib/recommend';
 
-const answers: Answers = {
-  job: ['knowledge', 'actions'], ownership: ['user'], audience: ['employees'],
-  architecture: ['managed'], channels: ['m365', 'web'], autonomy: ['prompted'],
-  integration: ['connectors'],
-};
+const answers: Answers = { approach: ['automation'], audience: ['employees'], channels: ['m365', 'web'] };
 
-test('feedback links select general or contextual templates without a category question', () => {
+test('feedback links preserve general and contextual templates and existing field IDs', () => {
   const general = new URL(feedbackUrl());
   assert.equal(general.origin + general.pathname,
     'https://github.com/microsoft/m365-copilot-studio-what-to-build-where/issues/new');
   assert.equal(general.searchParams.get('template'), 'general-feedback.yml');
-  assert.equal(general.searchParams.has('area'), false);
   assert.equal(general.searchParams.has('context'), false);
   assert.equal(general.searchParams.has('step'), false);
   const template = readFileSync(new URL('../.github/ISSUE_TEMPLATE/feedback.yml', import.meta.url), 'utf8');
@@ -39,41 +34,39 @@ test('feedback links select general or contextual templates without a category q
   assert.ok(template.indexOf('id: context\n') < template.indexOf('id: feedback\n'));
 });
 
-test('step feedback includes combined selections and removes disabled or irrelevant answers', () => {
-  const url = new URL(feedbackUrl({
+test('step feedback includes approach and current jobs without inferring skipped answers', () => {
+  const input: Answers = { approach: ['employee'], job: ['knowledge', 'actions'], audience: ['customers'], autonomy: ['personal'] };
+  const context = new URL(feedbackUrl({ kind: 'step', questionId: 'job', answers: input })).searchParams.get('context')!;
+  assert.match(context, /Approach: Employee-guided work in Microsoft 365/);
+  assert.match(context, /Answer questions or guide people in Microsoft 365; Take action in business systems/);
+  assert.match(context, /Selected approach scope:/);
+  assert.doesNotMatch(context, /- Audience:|- Autonomy:|- Behavior:|- Channels:/);
+  assert.deepEqual(input.audience, ['customers']);
+  const empty = new URL(feedbackUrl({ kind: 'step', questionId: 'approach', answers: {} })).searchParams.get('context')!;
+  assert.match(empty, /No answers recorded/);
+  assert.match(empty, /Current step has no selection/);
+  assert.doesNotMatch(empty, /Displayed selection/);
+});
+
+test('disabled channels and stale route selections are omitted from feedback', () => {
+  const context = new URL(feedbackUrl({
     kind: 'step', questionId: 'channels',
-    answers: { ...answers, job: ['actions'], audience: ['both'], integration: ['apis'] },
-  }));
-  assert.equal(url.searchParams.get('step'), 'Where does it need to work?');
-  const context = url.searchParams.get('context')!;
-  assert.match(context, /Take action in business systems/);
+    answers: { ...answers, audience: ['both'], job: ['actions'], integration: ['apis'] },
+  })).searchParams.get('context')!;
   assert.match(context, /A website or custom app/);
-  assert.doesNotMatch(context, /Microsoft 365 workspace|Integrations:/);
-  const jobs = new URL(feedbackUrl({ kind: 'step', questionId: 'job', answers })).searchParams.get('context')!;
-  assert.match(jobs, /Answer questions or guide people in Microsoft 365; Take action in business systems/);
+  assert.doesNotMatch(context, /Microsoft 365 workspace|Integrations:|The job:/);
 });
 
-test('preselected audience remains unconfirmed without mutating answers', () => {
-  const partial: Answers = { job: ['knowledge'], ownership: ['user'] };
-  const context = new URL(feedbackUrl({ kind: 'step', questionId: 'audience', answers: partial })).searchParams.get('context')!;
-  assert.match(context, /Displayed selection \(not yet confirmed\): Employees/);
-  assert.doesNotMatch(context, /- Audience:/);
-  assert.equal(partial.audience, undefined);
-});
-
-test('result feedback preserves harness identity and review notes, and rejects incomplete assessments', () => {
+test('result feedback preserves harness identity, uncertainty, and unconfirmed prerequisite distinction', () => {
   const context = new URL(feedbackUrl({ kind: 'result', answers })).searchParams.get('context')!;
   assert.match(context, /Result: Needs review/);
   assert.match(context, /Platform: Copilot Studio · GitHub Copilot Harness/);
   for (const note of recommend(answers).primary!.confirmations) assert.ok(context.includes(note));
-  const conflict = { ...answers, ownership: ['organization'], autonomy: ['personal'] };
-  const step = new URL(feedbackUrl({ kind: 'step', questionId: 'autonomy', answers: conflict })).searchParams.get('context')!;
-  assert.match(step, /Behavior: The organization/);
-  assert.match(step, /Current step has no selection/);
-  assert.doesNotMatch(step, /Autonomy:|for an employee’s own work/);
-  assert.throws(() => feedbackUrl({ kind: 'result', answers: conflict }), /completed assessment/);
+  assert.match(context, /What you need in place: prerequisites and next steps/);
+  assert.match(context, /They were not confirmed by your assessment answers/);
+  assert.doesNotMatch(context, /- Autonomy:|- Behavior:/);
   assert.throws(() => feedbackUrl({ kind: 'result', answers: {} }), /completed assessment/);
-  assert.throws(() => feedbackUrl({
-    kind: 'step', questionId: 'integration', answers: { architecture: ['own'] },
-  }), /visible question/);
+  assert.throws(() => feedbackUrl({ kind: 'result', answers: { approach: ['custom'] } }), /completed assessment/);
+  assert.throws(() => feedbackUrl({ kind: 'step', questionId: 'channels',
+    answers: { approach: ['custom'], architecture: ['own'] } }), /visible question/);
 });

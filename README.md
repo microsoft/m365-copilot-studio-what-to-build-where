@@ -63,9 +63,8 @@ BASE_PATH=/m365-copilot-studio-what-to-build-where/ npm run test:e2e
 Browser tests build the site and start/stop their own preview server on port 4327.
 They cover desktop/mobile, themes, the six result candidates, uncertainty,
 navigation, conditional answers, and no-JavaScript fallback. Unit tests exercise
-all 7,560 combinations of the encoded answer categories, including all nonempty
-job and channel combinations, plus partial-answer exclusions, independent control choices, and
-restoration of platforms after an answer changes.
+route membership and question budgets, all nonempty job and channel combinations,
+partial answers, normalization, and restoration of platforms after an answer changes.
 
 ```sh
 npm run build
@@ -90,8 +89,8 @@ Editorial corrections have been incorporated, but uncertain claims have not been
 silently resolved. Every visitor sees the draft status. Required unknown
 capabilities produce a **Needs review** result rather than an unqualified winner.
 
-- `src/data/guidance.ts`: question definitions, six products, watch-outs,
-  and confirmation notes.
+- `src/data/guidance.ts`: three approaches, question definitions, six products,
+  watch-outs, prerequisites, and confirmation notes.
 - `src/lib/candidates.ts`: partial-answer capability checks and requirement conflicts.
 - `src/lib/flow.ts`: relevant questions, choice availability, normalized answers,
   and the live shortlist.
@@ -100,57 +99,57 @@ capabilities produce a **Needs review** result rather than an unqualified winner
 - `src/pages/compare.astro`: public methodology and static reference.
 - `tests/recommend.test.ts`: expected journeys and requirement invariants.
 
-Every answer updates three groups: **Still applicable**, **Requires confirmation**,
-and **Excluded**. Unanswered questions impose no restrictions. Confirmations stay
-in the active shortlist; exclusions include reasons and are reconsidered when
-answers change. If no platform remains, the guide presents a no-match review.
-The sidebar switches between **Platform shortlist** (the default) and **Your
-requirements** using keyboard-accessible tabs. Both views preserve the current
-answers and update as selections change.
-**Reset answers** stays beside question progress on every step and result.
-It clears all selections and returns to the first question and full shortlist.
+The first question selects one of three approaches. Membership is defined in
+`approaches`, separately from capability checks, so future combinations can be
+added without equating organization-designed automation with a single platform.
+Automation plus deeper customization is not currently offered.
 
-Recommendations are selected only from active candidates. Preference precedence
-is own runtime; voice/handover; owned autonomy; Microsoft 365
-API/MCP integration; organization/audience/channel requirements; personal autonomy;
-Copilot Studio actions/reasoning; knowledge-only work. The first
-applicable preference among remaining candidates wins. Multiple remaining options
-without a distinguishing preference produce a review result. Excluded platforms
-remain in the shortlist's exclusion section, outside the result's alternatives.
+| Approach | Current platforms | Questions, including the approach |
+| --- | --- | --- |
+| Employee-guided work in Microsoft 365 | Agent Builder, Cowork | Work type; unprompted execution only while Agent Builder remains (2–3 total) |
+| Organization-designed business process automation | Copilot Studio GitHub Copilot Harness, Standard Harness | Audience and channels (3 total) |
+| Deeper customization and control | M365 Agents Toolkit, M365 Agents SDK | Development/runtime model (2 total) |
 
-The first question accepts multiple jobs: knowledge or process guidance,
-business-system actions, and complex tasks/documents. Every selected job contributes
-its requirements; selecting knowledge alongside actions or reasoning does not
-restore a platform excluded by those needs. The summary lists all selected jobs.
-The descriptions distinguish explaining process steps from executing them.
-Onboarding can involve business actions, checks, and approvals; it is not treated
-as knowledge-only work. Select all jobs needed for the actual onboarding process.
+Before an approach is selected, the sidebar prompts for that choice rather than
+listing six platforms. The full internal candidate set remains available, and
+the comparison page lists all products under the same approach headings.
+There is no default approach.
 
-The second question always asks who guides the work, as a separate single choice.
-Job selections never infer ownership. Employee-directed business actions retain
-Cowork subject to plugin confirmation; user direction alone does not select it.
-Editing the selected jobs preserves the explicit control answer.
-Approved organizational content can be used in either operating model; this
-question concerns who determines the agent's next actions and required paths.
-Autonomy choices follow this answer: user-guided work disables organization-owned
-autonomy, and organization-guided work disables personal autonomy. Prompted-only
-work remains available for either. Changing control clears an incompatible
-autonomy answer and requires a new selection before showing a recommendation.
+Each selection updates **Still applicable**, **Requires confirmation**, and
+**Excluded** within the approach. Platforms outside its current scope are counted
+separately; this is not a claim that those products lack the required capabilities.
+Recommendations and alternatives come only from active in-scope candidates.
+Unknown capabilities remain active with confirmation notes. Unanswered questions
+impose no capability restrictions. A no-match result never silently switches
+approaches.
 
-The architecture choice is a requirement: a platform-managed runtime excludes
-Microsoft 365 Agents SDK because the team must supply and operate its runtime.
-Choosing your own models/orchestration retains SDK and excludes managed options.
-Changing or clearing this answer reevaluates the shortlist and result.
+The employee route explicitly establishes employee-directed Microsoft 365 work.
+Jobs remain cumulative multi-select requirements: knowledge/process guidance,
+business actions, and complex tasks/documents. Explaining onboarding steps is
+distinct from performing actions, checks, and approvals. Actions or complex tasks
+narrow to Cowork; business actions retain plugin/permissions confirmation.
+Knowledge-only work additionally asks about unprompted execution, favoring Agent
+Builder for prompted work or Cowork with scheduling confirmation when required.
+User direction alone does not choose Cowork.
 
-Audience is the third question. The Microsoft 365 knowledge/guidance job is
-explicitly employee-facing: selecting it, alone or with other jobs, disables both
-customer audience choices. The audience step remains visible with Employees
-preselected and an explanation, so visitors can continue or go back.
-Continue records the selection; going back before confirming leaves it unanswered.
-Adding that job clears an incompatible audience answer and requires confirmation;
-removing it re-enables the customer choices without restoring a previous selection.
-This is the scope of the job option, rather than a universal restriction on
-agents that use Microsoft 365 knowledge sources.
+The automation route covers organization-designed repeatable business processes
+that may include conversational experiences, workflows, or both. GitHub Copilot
+Harness is always preferred unless voice or live-human handover is required.
+Either requirement excludes GitHub Copilot Harness and selects Standard Harness.
+This user-directed rule treats both capabilities as unsupported, superseding the
+original source's unresolved voice note without changing the preserved source.
+Non-voice multi-channel support remains flagged for confirmation. Job complexity,
+autonomy, integration authoring, and operational controls are checks on the result
+rather than extra questions.
+
+The customization route starts with the organization's requirements for deeper
+technical control; professional developers implement and operate the solution.
+It distinguishes a prompted, employee-facing Microsoft 365
+Copilot agent with developer-owned integrations from a developer-owned runtime.
+The former selects Toolkit with integration/tooling confirmation and excludes SDK
+because SDK requires team-owned models, orchestration, and hosting. The latter
+selects SDK and excludes managed options. Editing or clearing the development
+model restores the relevant candidates. Scope is explicit in both choices.
 
 Multi-channel requirements follow from selecting more than one of Microsoft 365,
 website/custom app, and voice. Live-human handover is a service capability and
@@ -161,26 +160,34 @@ Microsoft 365 channel selection while retaining other selected channels.
 The channel description lists Microsoft 365 Copilot and Teams; Outlook remains
 only in the preserved source drafts, pending confirmation of support.
 
-All answer choices stay visible in their original order. Unavailable options use
+All choices in a relevant question stay visible in their original order. Unavailable options use
 native disabled controls and a brief inline explanation identifying the earlier
 answer to change. Explanations remain visible on touch devices and in screen-reader
 reading mode; no tooltip is required. Unanswered prerequisites do not disable options.
 Only enabled choices can be recorded or used as a displayed default.
 
-Whole-question visibility is evaluated from earlier answers and the candidates still
-active at that point. API/MCP integration questions disappear once Toolkit is
-excluded. There is no new/existing-agent question or lifecycle-based routing.
-Standard Harness limitations highlight the preference for GitHub Copilot Harness
-for new agents, while retaining Standard for its channel requirements or existing
-agents. Both harness brand names remain in the guidance. Questions
-about audience, channels, and autonomy still capture prerequisites when SDK is
-the sole remaining candidate. Hidden follow-up answers are discarded; newly
-relevant questions require a new answer.
+Whole-question visibility is evaluated from earlier normalized answers and active
+candidates. Hidden or incompatible answers are discarded. Changing an approach
+never restores discarded selections, and newly relevant questions require a new
+answer. The sidebar retains keyboard-accessible **Platform shortlist** and
+**Your requirements** tabs. **Reset answers** stays beside progress, clears the
+assessment, and returns to the approach question and full internal candidate set.
+
+Non-differentiating checks move to **What you need in place: prerequisites and
+next steps** on results and comparison profiles. They are explicitly unconfirmed,
+not inferred answers or certified capabilities. SDK channel, audience, voice,
+handover, autonomy, hosting, security, and operational responsibilities remain
+visible there. Standard reasoning and autonomous-execution checks remain visible
+even though the shorter flow does not ask about them.
+
+There is no new/existing-agent question or lifecycle-based routing. Standard
+Harness limitations highlight the preference for GitHub Copilot Harness for new
+agents while retaining Standard for channel requirements or existing agents.
 Copilot Studio GitHub Copilot Harness results also surface the consideration to
 retain Standard when extending an existing Standard Harness agent, as requested
 in [issue #1](https://github.com/microsoft/m365-copilot-studio-what-to-build-where/issues/1).
 
-Results and the comparison page include a non-clickable **Related guidance**
+Results and the comparison page also include a non-clickable **Related guidance**
 document placeholder for platform details and next steps. No document URL has
 been supplied yet; the copy lives in `relatedGuidance` in `src/data/guidance.ts`.
 
@@ -196,7 +203,8 @@ and tests together. Key distinctions to preserve:
 - Fixed-rule business steps do not force the Standard Harness.
 - A custom website does not force SDK.
 - Prompted-only work does not automatically mean Agent Builder.
-- Toolkit API/MCP assumptions and GitHub Copilot Harness voice/multi-channel
+- Voice or live-human handover excludes GitHub Copilot Harness and selects Standard.
+- Toolkit API/MCP assumptions and GitHub Copilot Harness non-voice multi-channel
   support remain flagged for confirmation.
 - Cost, roadmap, model availability, ALM, and telemetry need current validation.
 

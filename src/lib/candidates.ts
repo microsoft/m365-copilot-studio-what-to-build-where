@@ -1,18 +1,19 @@
-import { has, hasMultipleChannels, products, type Answers, type Product } from '../data/guidance';
+import { getApproach, has, hasMultipleChannels, products, type Answers, type Product } from '../data/guidance';
 
 export interface Candidate {
   product: Product;
   reasons: string[];
   blockers: string[];
   confirmations: string[];
+  outsideApproach?: string;
 }
 
 export function requirementConflicts(a: Answers): string[] {
   const issues: string[] = [];
-  if (has(a, 'ownership', 'user') && has(a, 'autonomy', 'organization')) {
+  if ((has(a, 'ownership', 'user') || has(a, 'approach', 'employee')) && has(a, 'autonomy', 'organization')) {
     issues.push('You selected employee-guided behavior and organization-owned autonomy. Decide who owns the process and revise the relevant answer.');
   }
-  if (has(a, 'ownership', 'organization') && has(a, 'autonomy', 'personal')) {
+  if ((has(a, 'ownership', 'organization') || has(a, 'approach', 'automation')) && has(a, 'autonomy', 'personal')) {
     issues.push('You selected an organization-designed process and employee-directed autonomous work. Clarify which behavior the solution must enforce.');
   }
   return issues;
@@ -24,6 +25,18 @@ export function evaluate(product: Product, a: Answers): Candidate {
   const id = product.id;
   const isStudio = id === 'studio' || id === 'standard';
   const autonomous = has(a, 'autonomy', 'personal') || has(a, 'autonomy', 'organization');
+  const approach = getApproach(a);
+  if (approach && !approach.products.includes(id)) {
+    candidate.outsideApproach = `Outside the currently covered platforms for ${approach.label}. Change the approach to assess this platform.`;
+    return candidate;
+  }
+  if (approach) reasons.push(`Included in the current guidance for ${approach.label}.`);
+  if (approach?.id === 'custom' && id === 'toolkit') {
+    confirmations.push('Confirm the intended Toolkit agent type, current API/MCP integration and grounding support, and developer tooling direction.');
+    if (has(a, 'architecture', 'managed')) {
+      reasons.push('You selected a prompted Microsoft 365 Copilot agent using managed models and orchestration, with developer-owned integrations.');
+    }
+  }
 
   if (has(a, 'architecture', 'own')) {
     if (id === 'sdk') reasons.push('You need to choose your own models and orchestration; the SDK leaves that runtime with your team.');
@@ -36,7 +49,7 @@ export function evaluate(product: Product, a: Answers): Candidate {
       ['builder', 'cowork', 'toolkit'].includes(id)) {
     blockers.push('This guidance scopes this option to employee Microsoft 365 work. Your audience includes customers.');
   }
-  if (has(a, 'ownership', 'organization')) {
+  if (has(a, 'ownership', 'organization') || approach?.id === 'automation') {
     if (id === 'builder' || id === 'cowork') blockers.push('Your organization needs to design the process; this option is positioned for user-directed productivity.');
     if (isStudio) reasons.push('The organization can design the agent’s behavior and sensitive paths.');
     if (id === 'toolkit') confirmations.push('Confirm how the intended Toolkit agent type enforces organization-designed processes and sensitive paths.');
@@ -63,7 +76,7 @@ export function evaluate(product: Product, a: Answers): Candidate {
   }
   if (has(a, 'channels', 'voice')) {
     if (id === 'standard') reasons.push('The draft identifies the Standard Harness for voice; validate the exact channel and integration before deployment.');
-    else if (id === 'studio') confirmations.push('Voice support in the GitHub Copilot Harness is explicitly unresolved in the source.');
+    else if (id === 'studio') blockers.push('Voice is required, but the GitHub Copilot Harness does not support it. Use Copilot Studio Standard Harness for this requirement.');
     else if (id === 'sdk') confirmations.push('Confirm and implement a voice integration; the SDK alone does not supply it.');
     else blockers.push('The draft does not identify a voice-channel solution for this option.');
   }
@@ -89,7 +102,7 @@ export function evaluate(product: Product, a: Answers): Candidate {
   if (id === 'studio' && has(a, 'job', 'actions')) reasons.push('Connectors and workflows combine business-system actions with agentic and fixed-rule steps.');
   if (id === 'studio' && has(a, 'job', 'reasoning')) reasons.push('The draft highlights reasoning, multistep tools, and document processing for this harness.');
   if (id === 'builder' && has(a, 'job', 'knowledge')) reasons.push('The work includes answering questions or guiding people using Microsoft 365 content.');
-  if (id === 'cowork' && has(a, 'ownership', 'user')) reasons.push('The employee directs the work; Cowork provides a ready-made assistant for that operating model.');
+  if (id === 'cowork' && (has(a, 'ownership', 'user') || approach?.id === 'employee')) reasons.push('The employee directs the work; Cowork provides a ready-made assistant for that operating model.');
   return candidate;
 }
 
@@ -100,13 +113,15 @@ export function assessCandidates(answers: Answers) {
     candidate.blockers.push(...issues);
     return candidate;
   });
-  const active = candidates.filter(candidate => !candidate.blockers.length);
+  const inScope = candidates.filter(candidate => !candidate.outsideApproach);
+  const active = inScope.filter(candidate => !candidate.blockers.length);
   return {
     candidates,
     active,
     applicable: active.filter(candidate => !candidate.confirmations.length),
     conditional: active.filter(candidate => candidate.confirmations.length > 0),
-    excluded: candidates.filter(candidate => candidate.blockers.length > 0),
+    excluded: inScope.filter(candidate => candidate.blockers.length > 0),
+    outside: candidates.filter(candidate => candidate.outsideApproach),
     issues,
   };
 }
