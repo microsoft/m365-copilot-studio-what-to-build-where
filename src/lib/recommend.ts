@@ -8,6 +8,7 @@ export interface Recommendation {
   alternatives: Candidate[];
   candidates: Candidate[];
   excluded: Candidate[];
+  outside: Candidate[];
   issues: string[];
 }
 
@@ -15,6 +16,8 @@ function preferenceTiers(a: Answers): ProductId[][] {
   const tiers: ProductId[][] = [];
   if (has(a, 'architecture', 'own')) tiers.push(['sdk']);
   if (has(a, 'channels', 'handover') || has(a, 'channels', 'voice')) tiers.push(['standard']);
+  if (has(a, 'approach', 'automation')) tiers.push(['studio']);
+  if (has(a, 'approach', 'custom') && has(a, 'architecture', 'managed')) tiers.push(['toolkit']);
   if (has(a, 'autonomy', 'organization')) tiers.push(['studio']);
   if (has(a, 'integration', 'apis')) tiers.push(['toolkit']);
   if (has(a, 'ownership', 'organization') || has(a, 'audience', 'customers') || has(a, 'audience', 'both') ||
@@ -27,15 +30,15 @@ function preferenceTiers(a: Answers): ProductId[][] {
 
 export function recommend(input: Answers): Recommendation {
   const flow = getFlow(input);
-  const { candidates, active, excluded } = flow.shortlist;
+  const { candidates, active, excluded, outside } = flow.shortlist;
   const issues = [...flow.shortlist.issues];
   if (!active.length) {
     if (!issues.length) issues.push('No platform meets the current requirements. Review the exclusion reasons and revise the relevant answers.');
-    return { status: 'review', alternatives: [], candidates, excluded, issues };
+    return { status: 'review', alternatives: [], candidates, excluded, outside, issues };
   }
   if (flow.missing.length) {
     return {
-      status: 'incomplete', alternatives: active, candidates, excluded,
+      status: 'incomplete', alternatives: active, candidates, excluded, outside,
       issues: flow.missing.map(question => `Answer “${question.title}” to continue.`),
     };
   }
@@ -48,6 +51,6 @@ export function recommend(input: Answers): Recommendation {
     .sort((left, right) => Number(left.confirmations.length > 0) - Number(right.confirmations.length > 0));
   return {
     status: !primary || primary.confirmations.length ? 'review' : 'recommended',
-    primary, alternatives, candidates, excluded, issues,
+    primary, alternatives, candidates, excluded, outside, issues,
   };
 }

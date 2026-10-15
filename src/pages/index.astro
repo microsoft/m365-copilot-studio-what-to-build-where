@@ -6,7 +6,7 @@ import { withBase } from '../lib/url';
   <div class="page-shell">
     <section class="intro" aria-labelledby="page-title">
       <h1 id="page-title">Agent platform selection for Microsoft 365 and Copilot Studio (Draft)</h1>
-      <p>This guidance helps platform owners, Center of Excellence (CoE) leads, and platform architects assess agentic use cases across Microsoft 365 and Microsoft Copilot Studio. Compare platforms by scenario, audience, and organizational control, and review prerequisites for development, including governance, integration, and cost.</p>
+      <p>This guidance helps platform owners, Center of Excellence (CoE) leads, and platform architects assess agentic use cases across Microsoft 365 and Microsoft Copilot Studio. Choose an overall approach, answer its focused questions, and review the relevant platforms and prerequisites for development.</p>
     </section>
     <div class="guidance-notice"><span class="draft-badge">Draft guidance</span><p>Review flagged requirements and confirm platform capabilities before development. <a href={withBase('compare/#about')}>How this works</a></p></div>
     <noscript><div class="notice">The interactive guide needs JavaScript. You can still <a href={withBase('compare/')}>compare all six options</a> without it.</div></noscript>
@@ -42,13 +42,15 @@ import { withBase } from '../lib/url';
         </div>
         <p id="shortlist-status" class="shortlist-status" role="status" aria-live="polite" aria-atomic="true"></p>
         <section id="platform-shortlist" class="sidebar-tabpanel" role="tabpanel" aria-labelledby="shortlist-tab" tabindex="0">
-          <p class="shortlist-help">Updated from your answers. Unconfirmed capabilities remain under consideration.</p>
+          <p class="shortlist-help" id="shortlist-help">Choose an approach to see its two currently covered platforms.</p>
+          <p class="shortlist-help" id="approach-scope" hidden></p>
           <div id="applicable-platforms"></div>
           <div id="conditional-platforms"></div>
           <details id="excluded-platforms" class="excluded-platforms" hidden>
             <summary>Excluded <span id="excluded-count" class="count">0</span></summary>
             <div id="exclusion-reasons"></div>
           </details>
+          <p class="shortlist-help" id="outside-approach" hidden></p>
         </section>
         <section id="requirements" class="sidebar-tabpanel" role="tabpanel" aria-labelledby="requirements-tab" tabindex="0" hidden>
           <p class="summary-help">Review or edit your recorded requirements.</p>

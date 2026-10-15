@@ -1,4 +1,4 @@
-import { has, relatedGuidance, type Answers } from '../data/guidance';
+import { getApproach, has, prerequisiteNotice, prerequisites, prerequisiteTitle, relatedGuidance, type Answers } from '../data/guidance';
 import { recommend } from '../lib/recommend';
 import { type Candidate } from '../lib/candidates';
 import { getFlow } from '../lib/flow';
@@ -93,7 +93,7 @@ function renderSummary(flow: ReturnType<typeof getFlow>) {
 }
 
 function renderShortlist(flow: ReturnType<typeof getFlow>) {
-  const { applicable, conditional, excluded, active } = flow.shortlist;
+  const { applicable, conditional, excluded, active, outside } = flow.shortlist;
   function group(selector: string, title: string, candidates: Candidate[], exclusions = false) {
     const container = element(selector);
     container.replaceChildren();
@@ -118,14 +118,23 @@ function renderShortlist(flow: ReturnType<typeof getFlow>) {
     }
     container.append(list);
   }
-  group('#applicable-platforms', 'Still applicable', applicable);
+  group('#applicable-platforms', 'Still applicable', flow.approach ? applicable : []);
   group('#conditional-platforms', 'Requires confirmation', conditional);
   group('#exclusion-reasons', '', excluded, true);
   element('#excluded-platforms').hidden = excluded.length === 0;
   element('#excluded-count').textContent = String(excluded.length);
   element('#shortlist-count').textContent = String(active.length);
-  element('#shortlist-jump').textContent = `${active.length} ${active.length === 1 ? 'platform remains' : 'platforms remain'}`;
-  const status = active.length
+  element('#shortlist-count').hidden = !flow.approach;
+  element('#shortlist-jump').textContent = flow.approach
+    ? `${active.length} ${active.length === 1 ? 'platform remains' : 'platforms remain'}` : 'View shortlist';
+  element('#shortlist-help').textContent = flow.approach
+    ? 'Updated within your selected approach. Unconfirmed capabilities remain under consideration.'
+    : 'Choose an approach to see its two currently covered platforms.';
+  element('#approach-scope').textContent = flow.approach?.scope ?? '';
+  element('#approach-scope').hidden = !flow.approach;
+  element('#outside-approach').hidden = !outside.length;
+  element('#outside-approach').textContent = `${outside.length} platforms are outside this approach’s current scope. Change the approach to assess them.`;
+  const status = !flow.approach ? 'Choose an approach to narrow the shortlist.' : active.length
     ? `${active.length} ${active.length === 1 ? 'platform remains' : 'platforms remain'}${conditional.length ? `; ${conditional.length} ${conditional.length === 1 ? 'requires' : 'require'} confirmation` : ''}.`
     : 'No platform meets the current requirements. Review the conflicting answers.';
   const statusElement = element('#shortlist-status');
@@ -180,10 +189,22 @@ function renderResult() {
     hero.append(node('p', '', primary.product.summary));
     result.append(hero);
   }
+  const approach = getApproach(answers);
+  if (approach) {
+    const scope = node('section', 'related-guidance');
+    scope.append(node('h3', '', 'Selected approach'), node('p', '', approach.label), node('p', 'muted', approach.scope));
+    result.append(scope);
+  }
   addList(result, 'Resolve these requirements', recommendation.issues, 'conflict-note');
   if (primary) {
     result.append(candidateDetails(primary));
     addList(result, 'Items to validate', primary.product.review, 'review-note');
+    const checklist = node('section', 'prerequisites');
+    checklist.append(node('h3', '', prerequisiteTitle), node('p', 'muted', prerequisiteNotice));
+    const list = node('ul', 'reason-list');
+    prerequisites[primary.product.id].forEach(item => list.append(node('li', '', item)));
+    checklist.append(list);
+    result.append(checklist);
   }
   const documentPlaceholder = node('section', 'related-guidance');
   documentPlaceholder.append(node('h3', '', relatedGuidance.title), node('p', 'muted', relatedGuidance.description));
@@ -229,7 +250,8 @@ function render(focus = true) {
   renderShortlist(flow);
   error.hidden = true;
   const complete = step === questions.length;
-  element('#step-label').textContent = complete ? 'YOUR STARTING POINT' : `QUESTION ${step + 1} OF ${questions.length}`;
+  element('#step-label').textContent = complete ? 'YOUR STARTING POINT' :
+    !flow.approach ? 'QUESTION 1' : `QUESTION ${step + 1} OF ${questions.length}`;
   const percentage = complete ? 100 : Math.round(step / questions.length * 100);
   element('#progress-fill').style.width = `${percentage}%`;
   element('[role="progressbar"]').setAttribute('aria-valuenow', String(percentage));
@@ -284,7 +306,7 @@ function render(focus = true) {
     back.disabled = step === 0;
     element('#selection-hint').textContent = singleChoice ? 'Continue to confirm' :
       question.multiple ? 'Select all that apply' : 'Choose one option';
-    next.textContent = !flow.shortlist.active.length ? 'Review requirements' :
+    next.textContent = !flow.shortlist.active.length ? 'Review requirements' : !flow.approach ? 'Continue' :
       step === questions.length - 1 ? 'See my recommendation' : 'Continue';
   }
   updateFeedback(flow, complete);
@@ -307,11 +329,11 @@ form.addEventListener('change', () => {
   renderShortlist(flow);
   updateFeedback(flow, false);
   const count = flow.questions.length;
-  element('#step-label').textContent = `QUESTION ${step + 1} OF ${count}`;
+  element('#step-label').textContent = flow.approach ? `QUESTION ${step + 1} OF ${count}` : 'QUESTION 1';
   const percentage = Math.round(step / count * 100);
   element('#progress-fill').style.width = `${percentage}%`;
   element('[role="progressbar"]').setAttribute('aria-valuenow', String(percentage));
-  next.textContent = !flow.shortlist.active.length ? 'Review requirements' :
+  next.textContent = !flow.shortlist.active.length ? 'Review requirements' : !flow.approach ? 'Continue' :
     step === count - 1 ? 'See my recommendation' : 'Continue';
 });
 

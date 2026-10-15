@@ -1,441 +1,248 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { hasMultipleChannels, products, questions, type Answers } from '../src/data/guidance';
+import { approaches, hasMultipleChannels, prerequisites, products, questions, type Answers } from '../src/data/guidance';
 import { getFlow } from '../src/lib/flow';
 import { assessCandidates } from '../src/lib/candidates';
 import { recommend } from '../src/lib/recommend';
 import { feedbackUrl } from '../src/lib/feedback';
 import { deploymentConfig } from '../scripts/deployment-config.mjs';
 
-const base: Answers = {
-  job: ['knowledge'], audience: ['employees'], ownership: ['user'],
-  architecture: ['managed'], channels: ['m365'], autonomy: ['prompted'],
-  integration: ['connectors'],
-};
+const employee: Answers = { approach: ['employee'], job: ['knowledge'], autonomy: ['prompted'] };
+const automation: Answers = { approach: ['automation'], audience: ['employees'], channels: ['m365'] };
+const custom: Answers = { approach: ['custom'], architecture: ['managed'] };
+const ids = (answers: Answers) => getFlow(answers).shortlist.active.map(candidate => candidate.product.id);
+const steps = (answers: Answers) => getFlow(answers).questions.map(question => question.id);
+const combinations = (choices: string[]) => Array.from({ length: (1 << choices.length) - 1 },
+  (_, mask) => choices.filter((_, index) => (mask + 1) & (1 << index)));
 
-const jobChoices = ['knowledge', 'actions', 'reasoning'];
-const jobCombinations = Array.from({ length: 7 }, (_, mask) =>
-  jobChoices.filter((_, index) => (mask + 1) & (1 << index)));
-
-test('covers each of the six outcome candidates with explicit review where needed', () => {
-  const scenarios = [
-    { answers: {}, product: 'builder', status: 'recommended' },
-    { answers: { job: ['actions'] }, product: 'studio', status: 'recommended' },
-    { answers: { job: ['actions'], channels: ['handover'] }, product: 'standard', status: 'recommended' },
-    { answers: { job: ['reasoning'] }, product: 'studio', status: 'recommended' },
-    { answers: { autonomy: ['personal'] }, product: 'cowork', status: 'review' },
-    { answers: { job: ['actions'], integration: ['apis'] }, product: 'toolkit', status: 'review' },
-    { answers: { architecture: ['own'] }, product: 'sdk', status: 'recommended' },
-  ];
-  for (const scenario of scenarios) {
-    const result = recommend({ ...base, ...scenario.answers });
-    assert.equal(result.primary?.product.id, scenario.product);
-    assert.equal(result.status, scenario.status);
-    assert.equal(result.alternatives.length + result.excluded.length, 5);
-    assert.ok(result.alternatives.every(candidate => candidate.blockers.length === 0));
-    assert.equal(new Set(result.candidates.map(candidate => candidate.product.id)).size, 6);
+test('approaches narrow to their current pair without treating outside platforms as unsupported', () => {
+  assert.deepEqual(approaches.map(approach => approach.products), [
+    ['builder', 'cowork'], ['studio', 'standard'], ['toolkit', 'sdk'],
+  ]);
+  for (const approach of approaches) {
+    const flow = getFlow({ approach: [approach.id] });
+    assert.deepEqual(ids(flow.answers), approach.products);
+    assert.equal(flow.shortlist.excluded.length, 0);
+    assert.equal(flow.shortlist.outside.length, 4);
+    assert.ok(flow.shortlist.outside.every(candidate => candidate.outsideApproach && !candidate.blockers.length));
+    assert.equal(recommend(flow.answers).status, 'incomplete');
   }
-});
-
-test('a custom website does not force SDK, and fixed-rule actions do not force Standard', () => {
-  assert.equal(recommend({ ...base, channels: ['web'] }).primary?.product.id, 'studio');
-  assert.equal(recommend({ ...base, job: ['actions'] }).primary?.product.id, 'studio');
-});
-
-test('handles organization direction, customer audience, and both audiences explicitly', () => {
-  for (const override of [{ ownership: ['organization'] }, { job: ['actions'], audience: ['customers'], channels: ['web'] }, { job: ['actions'], audience: ['both'], channels: ['web'] }]) {
-    const result = recommend({ ...base, ...override });
-    assert.equal(result.primary?.product.id, 'studio');
-    assert.equal(result.status, 'recommended');
-    assert.ok(result.candidates.find(c => c.product.id === 'builder')?.blockers.length);
-  }
-});
-
-test('autonomy does not get routed to prompted-only products', () => {
-  const personal = recommend({ ...base, autonomy: ['personal'] });
-  assert.equal(personal.primary?.product.id, 'cowork');
-  assert.equal(personal.status, 'review');
-  for (const id of ['builder', 'toolkit']) assert.ok(personal.candidates.find(c => c.product.id === id)?.blockers.length);
-  const organization = recommend({ ...base, ownership: ['organization'], autonomy: ['organization'] });
-  assert.equal(organization.primary?.product.id, 'studio');
-  assert.equal(organization.status, 'recommended');
-});
-
-test('contradictory autonomy is cleared before recommendation, with defensive candidate checks retained', () => {
-  for (const override of [
-    { ownership: ['user'], autonomy: ['organization'] },
-    { ownership: ['organization'], autonomy: ['personal'] },
-  ]) {
-    const input = { ...base, ...override };
-    const raw = assessCandidates(input);
-    assert.equal(raw.active.length, 0);
-    assert.ok(raw.issues.length > 0);
-    const flow = getFlow(input);
-    assert.equal(flow.answers.autonomy, undefined);
-    assert.ok(!flow.summary.some(answer => answer.id === 'autonomy'));
-    assert.deepEqual(flow.missing.map(question => question.id), ['autonomy']);
-    const result = recommend(input);
-    assert.equal(result.status, 'incomplete');
-    assert.ok(result.issues.some(issue => issue.includes('Does it need to act without a prompt?')));
-    assert.equal(result.primary, undefined);
-    assert.ok(result.alternatives.length > 0);
-  }
-});
-
-test('voice and handover distinguish known, unknown, and unsupported paths', () => {
-  const voice = recommend({ ...base, channels: ['voice'] });
-  assert.equal(voice.primary?.product.id, 'standard');
-  assert.equal(voice.status, 'recommended');
-  assert.ok(voice.candidates.find(c => c.product.id === 'studio')?.confirmations.some(c => c.includes('Voice')));
-  const handover = recommend({ ...base, channels: ['web', 'handover'] });
-  assert.equal(handover.primary?.product.id, 'standard');
-  assert.ok(handover.candidates.find(c => c.product.id === 'studio')?.blockers.length);
-  const ownVoice = recommend({ ...base, architecture: ['own'], channels: ['voice', 'handover'] });
-  assert.equal(ownVoice.primary?.product.id, 'sdk');
-  assert.equal(ownVoice.status, 'review');
-});
-
-test('review state preserves unresolved multi-channel, Toolkit, and Standard reasoning claims', () => {
-  for (const override of [
-    { channels: ['m365', 'web'] },
-    { job: ['actions'], integration: ['apis'] },
-    { job: ['reasoning'], channels: ['voice'] },
-    { channels: ['voice'], ownership: ['organization'], autonomy: ['organization'] },
-  ]) {
-    const result = recommend({ ...base, ...override });
-    assert.equal(result.status, 'review');
-    assert.ok(result.primary?.confirmations.length);
-  }
-});
-
-test('normalization removes stale branches and invalid or duplicate values', () => {
-  const clean = getFlow(base).answers;
-  assert.equal(clean.integration, undefined);
-  const own = getFlow({ ...base, job: ['actions'], architecture: ['own'] }).answers;
-  assert.equal(own.integration, undefined);
-  assert.deepEqual(getFlow({ ...base, channels: ['m365', 'm365', 'nope'] }).answers.channels, ['m365']);
-  assert.deepEqual(getFlow({ ...base, job: ['knowledge', 'actions', 'actions', 'nope'] }).answers.job, ['knowledge', 'actions']);
-  assert.equal(getFlow({ ...base, job: ['actions'], audience: ['employees', 'customers'] }).answers.audience, undefined);
-  assert.equal(getFlow({ ...base, ownership: ['user', 'organization'] }).answers.ownership, undefined);
-  const retiredJob = getFlow({ job: ['employee-guided'] });
-  assert.equal(retiredJob.answers.job, undefined);
-  assert.equal(retiredJob.answers.ownership, undefined);
-  assert.equal(recommend({ ...base, job: ['nope'] }).status, 'incomplete');
+  assert.deepEqual(steps({}), ['approach']);
+  assert.equal(getFlow({}).shortlist.active.length, 6);
+  assert.deepEqual(getFlow({}).shortlist.candidates.flatMap(candidate =>
+    [...candidate.blockers, ...candidate.confirmations, ...candidate.reasons]), []);
+  assert.equal(recommend({}).primary, undefined);
   assert.equal(recommend({}).status, 'incomplete');
-  assert.equal(getFlow({ ...base, channels: ['multi'] }).answers.channels, undefined);
 });
 
-test('new or existing agents are a Standard Harness caveat, not a question or routing input', () => {
-  assert.deepEqual(questions.map(question => question.id),
-    ['job', 'ownership', 'audience', 'architecture', 'channels', 'autonomy', 'integration']);
-  const current = { ...base, job: ['actions'] };
-  for (const existing of ['new', 'standard']) {
-    const retired = { ...current, existing: [existing] };
-    assert.deepEqual(getFlow(retired), getFlow(current));
-    assert.deepEqual(recommend(retired), recommend(current));
-    assert.equal(feedbackUrl({ kind: 'result', answers: retired }), feedbackUrl({ kind: 'result', answers: current }));
-  }
-  const standard = recommend({ ...current, channels: ['voice', 'handover'] }).primary!;
-  assert.equal(standard.product.id, 'standard');
-  assert.ok(standard.product.watch.some(note => note.includes('not the default choice for new agents')));
-  const issueScenario = { ...base, ownership: ['organization'] };
-  const studio = recommend(issueScenario).primary!;
-  assert.equal(getFlow(issueScenario).questions.length, 6);
-  assert.equal(studio.product.id, 'studio');
-  assert.ok(studio.product.watch.some(note => note.includes('extending an existing Copilot Studio agent that uses the Standard Harness')));
-});
-
-test('multi-channel requirements come from selected channels, excluding handover', () => {
-  assert.equal(hasMultipleChannels({}), false);
-  for (const channels of [['m365'], ['web'], ['voice'], ['handover'], ['m365', 'm365'], ['m365', 'handover'], ['web', 'handover'], ['voice', 'handover']]) {
-    assert.equal(hasMultipleChannels({ channels }), false);
-    const studio = getFlow({ channels }).shortlist.candidates.find(candidate => candidate.product.id === 'studio');
-    assert.ok(!studio?.confirmations.some(note => note.includes('every channel')));
-  }
-  for (const channels of [['m365', 'web'], ['m365', 'voice'], ['web', 'voice'], ['m365', 'web', 'voice', 'handover']]) {
-    assert.equal(hasMultipleChannels({ channels }), true);
-    const studio = getFlow({ channels }).shortlist.candidates.find(candidate => candidate.product.id === 'studio');
-    assert.ok(studio?.confirmations.some(note => note.includes('every channel')));
-  }
-  const multiple = recommend({ ...base, channels: ['m365', 'web'] });
-  assert.equal(multiple.primary?.product.id, 'studio');
-  assert.equal(multiple.status, 'review');
-  const single = recommend({ ...base, channels: ['web'] });
-  assert.equal(single.primary?.product.id, 'studio');
-  assert.equal(single.status, 'recommended');
-});
-
-test('branch visibility follows the requirements, not stale answers', () => {
-  assert.equal(getFlow(base).questions.length, 6);
-  assert.equal(getFlow({ ...base, job: ['actions'] }).questions.length, 7);
-  assert.equal(getFlow({ ...base, architecture: ['own'], job: ['actions'] }).questions.length, 6);
-  assert.equal(getFlow({ ...base, job: ['knowledge', 'actions'] }).questions.length, 7);
-});
-
-test('unanswered questions never exclude platforms or trigger capability warnings', () => {
-  const empty = getFlow({});
-  assert.equal(empty.shortlist.applicable.length, 6);
-  assert.equal(empty.shortlist.conditional.length, 0);
-  assert.equal(empty.shortlist.excluded.length, 0);
-  assert.equal(empty.shortlist.issues.length, 0);
-  assert.equal(recommend({}).candidates.length, 6);
-  assert.deepEqual(assessCandidates({}).candidates.flatMap(candidate => candidate.reasons), []);
-  const firstAnswer = getFlow({ job: ['actions'] }).shortlist;
-  assert.deepEqual(firstAnswer.excluded.map(candidate => candidate.product.id), ['builder']);
-  assert.equal(firstAnswer.active.length, 5);
-  assert.equal(firstAnswer.candidates.find(candidate => candidate.product.id === 'toolkit')?.confirmations.length, 0);
-});
-
-test('explicit requirements progressively narrow the shortlist', () => {
-  const expected: [Answers, string[]][] = [
-    [{ ownership: ['organization'] }, ['builder', 'cowork']],
-    [{ architecture: ['own'] }, ['builder', 'studio', 'standard', 'cowork', 'toolkit']],
-    [{ architecture: ['managed'] }, ['sdk']],
-    [{ autonomy: ['personal'] }, ['builder', 'toolkit']],
-    [{ audience: ['customers'] }, ['builder', 'cowork', 'toolkit']],
-    [{ channels: ['web'] }, ['builder', 'cowork', 'toolkit']],
-    [{ channels: ['handover'] }, ['builder', 'studio', 'cowork', 'toolkit']],
+test('all six outcomes are reachable in two or three questions with scoped alternatives', () => {
+  const scenarios: [Answers, string, string, number][] = [
+    [employee, 'builder', 'recommended', 3],
+    [{ ...employee, job: ['reasoning'] }, 'cowork', 'recommended', 2],
+    [{ ...employee, job: ['actions'] }, 'cowork', 'review', 2],
+    [{ ...employee, autonomy: ['personal'] }, 'cowork', 'review', 3],
+    [automation, 'studio', 'recommended', 3],
+    [{ ...automation, channels: ['web', 'handover'] }, 'standard', 'recommended', 3],
+    [custom, 'toolkit', 'review', 2],
+    [{ ...custom, architecture: ['own'] }, 'sdk', 'recommended', 2],
   ];
-  for (const [answers, excluded] of expected) {
-    assert.deepEqual(getFlow(answers).shortlist.excluded.map(candidate => candidate.product.id), excluded);
+  for (const [answers, product, status, count] of scenarios) {
+    const result = recommend(answers);
+    assert.equal(result.primary?.product.id, product);
+    assert.equal(result.status, status);
+    assert.equal(steps(answers).length, count);
+    assert.ok(result.alternatives.length <= 1);
+    assert.equal(result.alternatives.length + result.excluded.length + result.outside.length, 5);
+    const scope = getFlow(answers).approach!.products;
+    assert.ok(result.alternatives.every(candidate => scope.includes(candidate.product.id) && !candidate.blockers.length));
+    assert.ok(result.primary?.reasons.length);
+    assert.ok(prerequisites[result.primary!.product.id].length);
   }
-  const voice = getFlow({ channels: ['voice'] }).shortlist;
-  assert.ok(voice.conditional.some(candidate => candidate.product.id === 'studio'));
-  assert.ok(voice.applicable.some(candidate => candidate.product.id === 'standard'));
-  assert.equal(voice.active.length, 3);
 });
 
-test('managed runtime excludes SDK and editing runtime restores the appropriate platforms', () => {
-  const managed = getFlow(base);
-  const sdk = managed.shortlist.excluded.find(candidate => candidate.product.id === 'sdk')!;
-  assert.ok(sdk.blockers.some(note => note.includes('platform-managed runtime')));
-  assert.equal(sdk.reasons.length, 0);
-  assert.ok(!managed.shortlist.active.some(candidate => candidate.product.id === 'sdk'));
-  assert.ok(!recommend(base).alternatives.some(candidate => candidate.product.id === 'sdk'));
-  const own = getFlow({ ...managed.answers, architecture: ['own'] });
-  assert.deepEqual(own.shortlist.active.map(candidate => candidate.product.id), ['sdk']);
-  assert.equal(recommend(own.answers).primary?.product.id, 'sdk');
-  assert.deepEqual(getFlow({ ...own.answers, architecture: ['managed'] }), managed);
-  assert.ok(getFlow({ ...managed.answers, architecture: [] }).shortlist.active.some(candidate => candidate.product.id === 'sdk'));
-});
-
-test('jobs are multi-select and control is always an independent second question', () => {
-  assert.equal(questions[0].multiple, true);
-  assert.equal(questions[1].id, 'ownership');
-  assert.notEqual(questions[1].multiple, true);
-  for (const job of jobCombinations) {
-    const flow = getFlow({ job });
-    assert.deepEqual(flow.answers.job, job);
-    assert.deepEqual(flow.questions.slice(0, 3).map(question => question.id), ['job', 'ownership', 'audience']);
-    assert.equal(flow.answers.ownership, undefined);
-    assert.equal(flow.summary.length, 1);
-    for (const ownership of ['user', 'organization']) {
-      const answered = getFlow({ job, ownership: [ownership] });
-      const edited = getFlow({ ...answered.answers, job: ['knowledge'] });
-      assert.deepEqual(edited.answers.ownership, [ownership]);
-      assert.equal(edited.summary[1].id, 'ownership');
+test('employee jobs are cumulative and explaining a process is distinct from actions', () => {
+  const jobQuestion = questions.find(question => question.id === 'job')!;
+  assert.equal(jobQuestion.multiple, true);
+  for (const job of combinations(['knowledge', 'actions', 'reasoning'])) {
+    const answers = { ...employee, job };
+    const result = recommend(answers);
+    assert.deepEqual(result, recommend({ ...answers, job: [...job].reverse() }));
+    assert.equal(result.primary?.product.id, job.includes('actions') || job.includes('reasoning') ? 'cowork' : 'builder');
+    const flow = getFlow(answers);
+    assert.equal(flow.summary.find(answer => answer.id === 'job')?.value,
+      jobQuestion.choices.filter(choice => job.includes(choice.id)).map(choice => choice.label).join('; '));
+    assert.equal(steps(answers).includes('autonomy'), job.length === 1 && job[0] === 'knowledge');
+    if (job.includes('actions')) {
+      assert.ok(result.primary?.confirmations.some(note => note.includes('plugins')));
+      assert.ok(result.excluded.find(candidate => candidate.product.id === 'builder')?.blockers.some(note => note.includes('writes')));
     }
   }
+  assert.equal(recommend({ approach: ['employee'] }).primary, undefined);
+  assert.equal(recommend({ approach: ['employee'], job: ['knowledge'] }).status, 'incomplete');
 });
 
-test('every selected job contributes its blockers and confirmations', () => {
-  for (const job of jobCombinations) {
-    const combined = assessCandidates({ job });
-    const singleJobs = job.map(value => assessCandidates({ job: [value] }));
-    for (const [index, candidate] of combined.candidates.entries()) {
-      assert.deepEqual(new Set(candidate.blockers), new Set(singleJobs.flatMap(single => single.candidates[index].blockers)));
-      assert.deepEqual(new Set(candidate.confirmations), new Set(singleJobs.flatMap(single => single.candidates[index].confirmations)));
-    }
-    const forward = recommend({ ...base, job });
-    const reversed = recommend({ ...base, job: [...job].reverse() });
-    assert.deepEqual(forward, reversed);
-    assert.equal(forward.primary?.product.id, job.includes('actions') || job.includes('reasoning') ? 'studio' : 'builder');
-    const summary = getFlow({ ...base, job }).summary.find(answer => answer.id === 'job');
-    assert.equal(summary?.value, questions[0].choices.filter(choice => job.includes(choice.id)).map(choice => choice.label).join('; '));
-  }
-  const allJobs = { ...base, job: jobChoices };
-  const standard = recommend({ ...allJobs, channels: ['voice'] });
-  assert.equal(standard.primary?.product.id, 'standard');
-  assert.equal(standard.status, 'review');
-  const toolkit = recommend({ ...allJobs, integration: ['apis'] });
-  assert.equal(toolkit.primary?.product.id, 'toolkit');
-  assert.equal(toolkit.status, 'review');
-  assert.ok(toolkit.primary?.confirmations.some(note => note.includes('complex reasoning')));
-  const partial = getFlow({ job: jobChoices });
-  const reduced = getFlow({ ...partial.answers, job: ['knowledge'] });
-  assert.equal(reduced.shortlist.active.length, 6);
-  assert.equal(reduced.shortlist.conditional.length, 0);
-  const removed = getFlow({ ...partial.answers, job: [] });
-  assert.equal(removed.answers.job, undefined);
-  assert.equal(recommend(removed.answers).status, 'incomplete');
+test('hidden checks are prerequisites rather than fabricated recorded answers', () => {
+  const scoped = getFlow({ ...employee, job: ['actions'], audience: ['customers'], channels: ['voice'],
+    architecture: ['own'], ownership: ['organization'], integration: ['apis'] });
+  assert.deepEqual(scoped.answers, { approach: ['employee'], job: ['actions'] });
+  assert.deepEqual(scoped.summary.map(answer => answer.id), ['approach', 'job']);
+  assert.deepEqual(steps(automation), ['approach', 'audience', 'channels']);
+  assert.deepEqual(steps(custom), ['approach', 'architecture']);
+  assert.ok(prerequisites.cowork.some(note => /scheduling/i.test(note)));
+  assert.ok(prerequisites.standard.some(note => /complex reasoning.*autonomous triggers/.test(note)));
+  assert.ok(prerequisites.sdk.some(note => /Voice, human handover.*not supplied/.test(note)));
+  assert.ok(prerequisites.toolkit.some(note => /unprompted execution/.test(note)));
 });
 
-test('employee-directed business actions retain Cowork subject to plugin confirmation', () => {
-  const directed = recommend({ ...base, job: ['knowledge', 'actions'] });
-  assert.equal(directed.primary?.product.id, 'studio');
-  const cowork = directed.alternatives.find(candidate => candidate.product.id === 'cowork');
-  assert.ok(cowork);
-  assert.ok(cowork.confirmations.some(note => note.includes('plugins')));
-  const organization = recommend({ ...base, job: ['knowledge', 'actions'], ownership: ['organization'] });
-  assert.ok(organization.excluded.some(candidate => candidate.product.id === 'cowork'));
-  assert.equal(recommend({ ...base, job: ['actions'], audience: ['customers'], channels: ['web'] }).primary?.product.id, 'studio');
+test('switching routes and hiding follow-ups never restores discarded answers', () => {
+  const original = getFlow({ ...employee, autonomy: ['personal'] });
+  const actions = getFlow({ ...original.answers, job: ['actions'] });
+  assert.equal(actions.answers.autonomy, undefined);
+  const knowledge = getFlow({ ...actions.answers, job: ['knowledge'] });
+  assert.equal(knowledge.answers.autonomy, undefined);
+  assert.equal(recommend(knowledge.answers).status, 'incomplete');
+  const switched = getFlow({ ...original.answers, approach: ['automation'] });
+  assert.deepEqual(switched.answers, { approach: ['automation'] });
+  const returned = getFlow({ ...switched.answers, approach: ['employee'] });
+  assert.deepEqual(returned.answers, { approach: ['employee'] });
+  assert.deepEqual(getFlow({ ...automation, approach: [] }).answers, {});
+  assert.equal(getFlow({ ...automation, approach: [] }).shortlist.active.length, 6);
 });
 
-test('customer audiences disable Microsoft 365 workspace and prune only that channel', () => {
-  assert.equal(getFlow({}).questions.find(question => question.id === 'channels')?.choices[0].disabledReason, undefined);
+test('normalization rejects invalid, hidden, disabled, and multiple single-choice selections', () => {
+  assert.deepEqual(getFlow({ approach: ['nope'], job: ['actions'], architecture: ['own'] }).answers, {});
+  assert.deepEqual(getFlow({ approach: ['employee', 'custom'], job: ['actions'] }).answers, {});
+  assert.deepEqual(getFlow({ ...employee, job: ['reasoning', 'knowledge', 'reasoning', 'nope'] }).answers.job,
+    ['knowledge', 'reasoning']);
+  assert.equal(getFlow({ ...custom, architecture: ['own', 'managed'] }).answers.architecture, undefined);
+  assert.equal(getFlow({ ...employee, autonomy: ['organization'] }).answers.autonomy, undefined);
+  assert.equal(recommend({ ...employee, autonomy: ['organization'] }).status, 'incomplete');
+  assert.deepEqual(getFlow({ job: ['knowledge'], ownership: ['user'], channels: ['m365'] }).answers, {});
+});
+
+test('customer audiences disable Microsoft 365 workspace and preserve other channels', () => {
   for (const audience of ['customers', 'both']) {
-    const employee = getFlow({ ...base, job: ['actions'], channels: ['m365', 'web'] });
-    const changed = getFlow({ ...employee.answers, audience: [audience] });
+    const original = getFlow({ ...automation, channels: ['m365', 'web'] });
+    const changed = getFlow({ ...original.answers, audience: [audience] });
     const choices = changed.questions.find(question => question.id === 'channels')!.choices;
     assert.deepEqual(choices.map(choice => choice.id), ['m365', 'web', 'voice', 'handover']);
-    assert.match(choices[0].disabledReason!, /Choose "Employees" in "Who will use it\?"/);
+    assert.match(choices[0].disabledReason!, /Choose "Employees"/);
     assert.ok(choices.slice(1).every(choice => !choice.disabledReason));
     assert.deepEqual(changed.answers.channels, ['web']);
     assert.equal(hasMultipleChannels(changed.answers), false);
-    assert.equal(changed.summary.find(answer => answer.id === 'channels')?.value, 'A website or custom app');
-    const empty = getFlow({ ...base, job: ['actions'], audience: [audience] });
-    assert.equal(empty.answers.channels, undefined);
-    assert.equal(empty.answers.integration, undefined);
-    assert.ok(empty.missing.some(question => question.id === 'channels'));
-    assert.equal(recommend(empty.answers).status, 'incomplete');
     const restored = getFlow({ ...changed.answers, audience: ['employees'] });
-    assert.equal(restored.questions.find(question => question.id === 'channels')?.choices[0].disabledReason, undefined);
+    assert.equal(restored.questions.find(question => question.id === 'channels')!.choices[0].disabledReason, undefined);
     assert.deepEqual(restored.answers.channels, ['web']);
-    const sdk = getFlow({ ...changed.answers, architecture: ['own'] });
-    assert.ok(sdk.questions.find(question => question.id === 'channels')?.choices[0].disabledReason);
+    assert.equal(recommend({ ...automation, audience: [audience] }).status, 'incomplete');
   }
+  assert.equal(getFlow({ approach: ['automation'] }).questions.find(question => question.id === 'channels')!.choices[0].disabledReason, undefined);
 });
 
-test('the Microsoft 365 job restricts audience choices and clears incompatible answers', () => {
-  for (const job of jobCombinations) {
-    const flow = getFlow({ job });
-    const audience = flow.questions.find(question => question.id === 'audience')!;
-    assert.deepEqual(audience.choices.map(choice => choice.id), ['employees', 'customers', 'both']);
-    assert.deepEqual(audience.choices.filter(choice => !choice.disabledReason).map(choice => choice.id),
-      job.includes('knowledge') ? ['employees'] : ['employees', 'customers', 'both']);
-    assert.equal(audience.singleEnabledChoice?.id, job.includes('knowledge') ? 'employees' : undefined);
-    assert.equal(flow.answers.audience, undefined);
-    if (job.includes('knowledge')) {
-      assert.ok(audience.choices.slice(1).every(choice => choice.disabledReason?.includes('employee-only')));
+test('voice and handover exclude GitHub Copilot Harness while non-voice multi-channel checks remain explicit', () => {
+  const voice = getFlow({ ...automation, channels: ['voice'] });
+  assert.deepEqual(ids(voice.answers), ['standard']);
+  assert.ok(voice.shortlist.excluded.find(candidate => candidate.product.id === 'studio')?.blockers.some(note => note.includes('Voice is required')));
+  assert.equal(recommend(voice.answers).primary?.product.id, 'standard');
+  const handover = getFlow({ ...voice.answers, channels: ['voice', 'handover'] });
+  assert.deepEqual(ids(handover.answers), ['standard']);
+  assert.ok(handover.shortlist.excluded[0].blockers.some(note => note.includes('handover')));
+  assert.deepEqual(ids({ ...handover.answers, channels: ['voice'] }), ['standard']);
+  assert.deepEqual(ids({ ...handover.answers, channels: ['handover'] }), ['standard']);
+  assert.deepEqual(ids({ ...handover.answers, channels: ['web'] }), ['studio', 'standard']);
+  assert.equal(hasMultipleChannels({ channels: ['web', 'handover'] }), false);
+  assert.equal(hasMultipleChannels({ channels: ['m365', 'web'] }), true);
+  const multiple = recommend({ ...automation, channels: ['m365', 'web'] });
+  assert.equal(multiple.primary?.product.id, 'studio');
+  assert.equal(multiple.status, 'review');
+  assert.ok(multiple.primary?.confirmations.some(note => note.includes('every channel')));
+  assert.equal(recommend({ ...automation, channels: ['web'] }).status, 'recommended');
+});
+
+test('automation always prefers GitHub Copilot Harness except for voice or handover across all audiences and channel combinations', () => {
+  for (const audience of ['employees', 'customers', 'both']) {
+    for (const channels of combinations(['m365', 'web', 'voice', 'handover'])) {
+      const answers = { ...automation, audience: [audience], channels };
+      const result = recommend(answers);
+      const flow = getFlow(answers);
+      if (flow.missing.length) {
+        assert.equal(result.status, 'incomplete');
+        continue;
+      }
+      const needsStandard = channels.includes('voice') || channels.includes('handover');
+      assert.equal(result.primary?.product.id, needsStandard ? 'standard' : 'studio');
+      if (needsStandard) {
+        assert.ok(result.excluded.some(candidate => candidate.product.id === 'studio'));
+        assert.equal(result.alternatives.length, 0);
+      }
     }
   }
-  for (const audience of ['customers', 'both']) {
-    const customer = getFlow({ ...base, job: ['actions'], audience: [audience], channels: ['web'] });
-    assert.equal(recommend(customer.answers).status, 'recommended');
-    const changed = getFlow({ ...customer.answers, job: ['knowledge', 'actions'] });
-    assert.equal(changed.answers.audience, undefined);
-    assert.ok(!changed.summary.some(answer => answer.id === 'audience'));
-    assert.deepEqual(changed.missing.map(question => question.id), ['audience']);
-    assert.equal(recommend(changed.answers).status, 'incomplete');
-    const restored = getFlow({ ...changed.answers, job: ['actions'] });
-    assert.ok(restored.questions.find(question => question.id === 'audience')?.choices.every(choice => !choice.disabledReason));
-    assert.equal(restored.answers.audience, undefined);
-    const corrected = getFlow({ ...changed.answers, audience: ['employees'] });
-    assert.deepEqual(corrected.answers.audience, ['employees']);
-    assert.equal(recommend(corrected.answers).status, 'recommended');
-  }
 });
 
-test('candidate exclusions remove irrelevant follow-ups and their stale values', () => {
-  const autonomous = getFlow({ ...base, job: ['actions'], autonomy: ['personal'], integration: ['apis'] });
-  assert.equal(autonomous.answers.integration, undefined);
-  assert.ok(!autonomous.questions.some(question => question.id === 'integration'));
-  assert.equal(recommend(autonomous.answers).primary?.product.id, 'cowork');
-  const web = getFlow({ ...base, job: ['actions'], channels: ['web', 'm365'], integration: ['apis'] });
-  assert.equal(web.answers.integration, undefined);
-  assert.equal(recommend(web.answers).primary?.product.id, 'studio');
-  const handover = getFlow({ ...base, channels: ['handover'] });
-  assert.equal(recommend(handover.answers).primary?.product.id, 'standard');
-  const one = getFlow({ ...base, architecture: ['own'], job: ['actions'] });
-  assert.equal(one.shortlist.active.length, 1);
-  assert.ok(one.questions.some(question => question.id === 'channels'));
-  assert.ok(one.questions.some(question => question.id === 'autonomy'));
-  const edited = getFlow({ ...one.answers, architecture: ['managed'] });
-  assert.ok(edited.questions.some(question => question.id === 'integration'));
-  assert.equal(edited.answers.integration, undefined);
-  assert.equal(recommend(edited.answers).status, 'incomplete');
+test('website embedding and fixed-rule steps do not force SDK or Standard', () => {
+  const result = recommend({ ...automation, channels: ['web'] });
+  assert.equal(result.primary?.product.id, 'studio');
+  assert.ok(result.outside.some(candidate => candidate.product.id === 'sdk'));
+  const standard = products.find(product => product.id === 'standard')!;
+  assert.ok(standard.watch.some(note => note.includes('Fixed-rule business steps alone')));
+  assert.ok(standard.watch.some(note => note.includes('not the default choice for new agents')));
+  assert.ok(result.primary?.product.watch.some(note => note.includes('existing Copilot Studio agent')));
+  assert.ok(questions.every(question => !['ownership', 'integration', 'existing'].includes(question.id)));
 });
 
-test('autonomy availability follows explicit control and edits never restore discarded selections', () => {
-  const unanswered = getFlow({}).questions.find(question => question.id === 'autonomy')!;
-  assert.ok(unanswered.choices.every(choice => !choice.disabledReason));
-  assert.equal(unanswered.singleEnabledChoice, undefined);
-  for (const [ownership, autonomy, otherOwnership, disabled] of [
-    ['user', 'personal', 'organization', 'organization'],
-    ['organization', 'organization', 'user', 'personal'],
+test('managed runtime excludes SDK and editing or clearing it restores candidates', () => {
+  const managed = getFlow(custom);
+  assert.deepEqual(ids(custom), ['toolkit']);
+  assert.ok(managed.shortlist.excluded.find(candidate => candidate.product.id === 'sdk')?.blockers.some(note => note.includes('platform-managed runtime')));
+  assert.ok(recommend(custom).primary?.reasons.some(note => note.includes('developer-owned integrations')));
+  const own = getFlow({ ...managed.answers, architecture: ['own'] });
+  assert.deepEqual(ids(own.answers), ['sdk']);
+  assert.deepEqual(getFlow({ ...own.answers, architecture: ['managed'] }), managed);
+  assert.deepEqual(ids({ ...managed.answers, architecture: [] }), ['toolkit', 'sdk']);
+  assert.equal(recommend({ ...managed.answers, architecture: [] }).status, 'incomplete');
+});
+
+test('raw capability conflict checks still block incompatible must-haves without switching routes', () => {
+  for (const answers of [
+    { approach: ['employee'], architecture: ['own'] },
+    { approach: ['employee'], autonomy: ['organization'] },
+    { approach: ['automation'], autonomy: ['personal'] },
+    { ownership: ['user'], autonomy: ['organization'] },
+    { ownership: ['organization'], autonomy: ['personal'] },
   ]) {
-    const initial = getFlow({ ...base, ownership: [ownership], autonomy: [autonomy] });
-    assert.notEqual(recommend(initial.answers).status, 'incomplete');
-    const question = initial.questions.find(question => question.id === 'autonomy')!;
-    assert.deepEqual(question.choices.map(choice => choice.id), ['prompted', 'personal', 'organization']);
-    assert.deepEqual(question.choices.filter(choice => choice.disabledReason).map(choice => choice.id), [disabled]);
-    assert.match(question.choices.find(choice => choice.id === disabled)!.disabledReason!, /Who guides the work\?/);
-    assert.equal(question.singleEnabledChoice, undefined);
-    const changed = getFlow({ ...initial.answers, ownership: [otherOwnership] });
-    assert.equal(changed.answers.autonomy, undefined);
-    assert.deepEqual(changed.answers.channels, base.channels);
-    assert.equal(recommend(changed.answers).status, 'incomplete');
-    const restored = getFlow({ ...changed.answers, ownership: [ownership] });
-    assert.equal(restored.questions.find(question => question.id === 'autonomy')?.choices.find(choice => choice.id === autonomy)?.disabledReason, undefined);
-    assert.equal(restored.answers.autonomy, undefined);
-    assert.equal(recommend(restored.answers).status, 'incomplete');
-    const corrected = getFlow({ ...changed.answers, autonomy: ['prompted'] });
-    assert.deepEqual(corrected.answers.autonomy, ['prompted']);
-    assert.deepEqual(getFlow({ ...corrected.answers, ownership: [ownership] }).answers.autonomy, ['prompted']);
-    assert.notEqual(recommend(corrected.answers).status, 'incomplete');
+    assert.equal(assessCandidates(answers).active.length, 0);
   }
+  const sdk = assessCandidates({ approach: ['custom'], architecture: ['own'], channels: ['voice', 'handover'], autonomy: ['organization'] });
+  assert.deepEqual(sdk.active.map(candidate => candidate.product.id), ['sdk']);
+  assert.ok(sdk.active[0].confirmations.some(note => note.includes('SDK alone')));
+  assert.ok(sdk.active[0].confirmations.some(note => note.includes('autonomous orchestration')));
 });
 
-test('exhaustive combinations never mark blocked or unconfirmed must-haves as recommended', () => {
-  const channels = ['m365', 'web', 'voice', 'handover'];
-  let count = 0;
-  for (const job of jobCombinations)
+test('all route combinations meet question budgets and preserve candidate and review invariants', () => {
+  const cases: Answers[] = [];
+  for (const job of combinations(['knowledge', 'actions', 'reasoning']))
+    for (const autonomy of ['prompted', 'personal']) cases.push({ ...employee, job, autonomy: [autonomy] });
   for (const audience of ['employees', 'customers', 'both'])
-  for (const ownership of ['user', 'organization'])
-  for (const architecture of ['managed', 'own'])
-  for (const autonomy of ['prompted', 'personal', 'organization'])
-  for (const integration of ['connectors', 'apis'])
-  for (let mask = 1; mask < 16; mask += 1) {
-    const answers: Answers = {
-      job, audience: [audience], ownership: [ownership], architecture: [architecture],
-      autonomy: [autonomy], integration: [integration],
-      channels: channels.filter((_, index) => mask & (1 << index)),
-    };
+    for (const channels of combinations(['m365', 'web', 'voice', 'handover']))
+      cases.push({ ...automation, audience: [audience], channels });
+  for (const architecture of ['managed', 'own']) cases.push({ ...custom, architecture: [architecture] });
+  for (const answers of cases) {
+    const flow = getFlow(answers);
     const result = recommend(answers);
-    if (result.status !== 'incomplete') {
-      assert.ok(feedbackUrl({ kind: 'result', answers }).length < 6000, 'Feedback URLs must remain compact without truncating context.');
-    }
-    const incompatibleAudience = job.includes('knowledge') && audience !== 'employees';
-    const missingChannel = !incompatibleAudience && audience !== 'employees' &&
-      answers.channels?.length === 1 && answers.channels[0] === 'm365';
-    const conflictingControl = (ownership === 'user' && autonomy === 'organization') ||
-      (ownership === 'organization' && autonomy === 'personal');
-    if (incompatibleAudience || missingChannel || conflictingControl) {
-      assert.equal(result.status, 'incomplete');
-      assert.ok(result.issues.some(issue => issue.includes(incompatibleAudience ? 'Who will use it?' :
-        missingChannel ? 'Where does it need to work?' : 'Does it need to act without a prompt?')));
+    assert.ok(flow.questions.length >= 2 && flow.questions.length <= 3);
+    assert.deepEqual(getFlow(flow.answers), flow);
+    assert.equal(result.candidates.length, 6);
+    assert.equal(result.alternatives.length + result.excluded.length + result.outside.length + Number(!!result.primary), 6);
+    assert.ok(result.alternatives.every(candidate => !candidate.blockers.length && !candidate.outsideApproach));
+    if (result.status === 'incomplete') {
+      assert.equal(result.primary, undefined);
+      assert.ok(flow.missing.length);
     } else {
-      assert.notEqual(result.status, 'incomplete');
-      assert.ok(result.primary?.reasons.length || result.status === 'review');
+      assert.ok(feedbackUrl({ kind: 'result', answers }).length < 6000);
+      assert.ok(result.primary && !result.primary.blockers.length && !result.primary.outsideApproach);
+      assert.equal(result.status === 'review', result.primary.confirmations.length > 0);
     }
-    assert.equal(result.candidates.length, products.length);
-    assert.ok(result.alternatives.every(candidate => !candidate.blockers.length));
-    if (result.primary) assert.equal(result.primary.blockers.length, 0);
-    if (architecture === 'managed') {
-      assert.ok(result.excluded.some(candidate => candidate.product.id === 'sdk'));
-      assert.notEqual(result.primary?.product.id, 'sdk');
-      assert.ok(!result.alternatives.some(candidate => candidate.product.id === 'sdk'));
-    }
-    assert.equal(result.alternatives.length + result.excluded.length + Number(!!result.primary), 6);
-    if (result.status === 'recommended') {
-      assert.equal(result.primary?.blockers.length, 0);
-      assert.equal(result.primary?.confirmations.length, 0);
-      assert.equal(result.issues.length, 0);
-    }
-    if (architecture === 'own' && result.primary) assert.equal(result.primary.product.id, 'sdk');
-    count += 1;
   }
-  assert.equal(count, 7560);
+  assert.equal(cases.length, 61);
 });
 
 test('deployment supports root and repository paths, rejects malformed settings', () => {
