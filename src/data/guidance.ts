@@ -1,222 +1,186 @@
-export type ProductId = 'builder' | 'studio' | 'standard' | 'cowork' | 'toolkit' | 'sdk';
-export type QuestionId = 'approach' | 'job' | 'audience' | 'ownership' | 'architecture' | 'channels' | 'autonomy' | 'integration';
+export type QuestionId = 'audience' | 'direction' | 'job' | 'complexity';
+
+export type SolutionId = 'builder' | 'cowork' | 'microsoft' | 'review';
+
 export type Answers = Partial<Record<QuestionId, string[]>>;
 
-export interface Approach {
-  id: 'employee' | 'automation' | 'custom';
-  label: string;
-  detail: string;
-  scope: string;
-  products: readonly ProductId[];
-}
+export interface Choice { id: string; label: string; description: string; disabledReason?: (a: Answers) => string | undefined }
 
-export const approaches: readonly Approach[] = [
-  {
-    id: 'employee',
-    label: 'Employee-guided work in Microsoft 365',
-    detail: 'The employee asks questions or directs work across apps. The organization governs knowledge, connectors, plugins, and skills.',
-    scope: 'Employee-directed work in Microsoft 365, with organizational governance of access and building blocks. The employee chooses the sequence of work.',
-    products: ['builder', 'cowork'],
-  },
-  {
-    id: 'automation',
-    label: 'Organization-designed business process automation',
-    detail: 'The organization designs a repeatable business process that may include conversational experiences, workflows, or both, using governed tools, integrations, and agentic reasoning.',
-    scope: 'Organization-designed repeatable business processes that may include conversational experiences, workflows, or both. This guidance currently covers the two Copilot Studio harnesses in this approach; the category is broader than these platforms.',
-    products: ['studio', 'standard'],
-  },
-  {
-    id: 'custom',
-    label: 'Deeper customization and control',
-    detail: 'The organization requires greater control over integrations, models, orchestration, hosting, channels, or software delivery.',
-    scope: 'The organization requires deeper technical control. Professional developers implement, secure, test, and operate the integrations or runtime.',
-    products: ['toolkit', 'sdk'],
-  },
-];
-
-export function getApproach(answers: Answers): Approach | undefined {
-  return answers.approach?.length === 1
-    ? approaches.find(approach => approach.id === answers.approach?.[0])
-    : undefined;
-}
-
-export const relatedGuidance = {
-  title: 'Related guidance',
-  description: 'Document link coming soon. The related document will provide further platform details and next steps.',
-};
-
-export interface Product {
-  id: ProductId;
-  name: string;
-  shortName: string;
-  category: string;
-  summary: string;
-  goodFor: string;
-  watch: string[];
-  review: string[];
-}
-
-export const products: Product[] = [
-  {
-    id: 'builder', name: 'Agent Builder', shortName: 'Agent Builder', category: 'No-code',
-    summary: 'Enable a focused assistant over Microsoft 365 content.',
-    goodFor: 'Personal or team knowledge and productivity, when people ask the questions.',
-    watch: ['Enable it securely within your Microsoft 365 governance, rather than treating every use case as a central build.', 'The draft does not position it for writing to business systems or running without a prompt.'],
-    review: ['Validate the current supported sources, ALM, and runtime telemetry before committing.'],
-  },
-  {
-    id: 'studio', name: 'Copilot Studio', shortName: 'Copilot Studio · GitHub Copilot Harness', category: 'GitHub Copilot Harness',
-    summary: 'Build an organization-designed agent for complex work.',
-    goodFor: 'New business agents with reasoning, document processing, tool use, and organization-owned automation.',
-    watch: ['If you are extending an existing Copilot Studio agent that uses the Standard Harness, consider retaining that harness for its existing topics and integrations.', 'Budget for multistep execution and autonomous work; assign an owner to review outcomes.', 'Voice and live-human handover are not supported by this harness. Use Copilot Studio Standard Harness for those requirements.'],
-    review: ['Confirm the required non-voice publishing channels and channel combinations.', 'Validate the draft claims about reasoning models, recovery behavior, and per-request costs against current product documentation.'],
-  },
-  {
-    id: 'standard', name: 'Copilot Studio', shortName: 'Copilot Studio · Standard Harness', category: 'Standard Harness',
-    summary: 'Use Copilot Studio for voice or live-human handover, or extend an existing Standard Harness agent.',
-    goodFor: 'Existing Copilot Studio agents using the Standard Harness, and the draft’s voice or live-human-handover scenarios.',
-    watch: ['The Standard Harness is not the default choice for new agents. Evaluate the GitHub Copilot Harness first, unless voice or live-human handover requires Standard.', 'Fixed-rule business steps alone are not a reason to choose the Standard Harness.', 'Check the exact voice or handover integration and the channels you intend to use.'],
-    review: ['Validate the roadmap and model availability; the draft’s “no major new capabilities” statement is not a verified roadmap.', 'Organization-owned autonomy and advanced reasoning requirements need confirmation for this harness.'],
-  },
-  {
-    id: 'cowork', name: 'Cowork', shortName: 'Cowork', category: 'No agent to build',
-    summary: 'Let an employee direct the work in a ready-made assistant.',
-    goodFor: 'User-directed cross-app tasks, with centrally managed plugins and skills.',
-    watch: ['Not a substitute for an organization-designed end-to-end process.', 'Review outputs before relying on them.'],
-    review: ['Validate scheduling, event triggers, available integrations, and collaboration/ALM limits in your environment.'],
-  },
-  {
-    id: 'toolkit', name: 'Microsoft 365 Agents Toolkit', shortName: 'M365 Agents Toolkit', category: 'Pro-code · Microsoft 365',
-    summary: 'Build a Microsoft 365 agent with your own integrations.',
-    goodFor: 'Prompted actions from Microsoft 365 Copilot using the team’s own APIs or MCP servers.',
-    watch: ['Your team owns integration engineering, authentication, testing, and deployment.', 'The draft positions this option for tasks initiated by a user prompt.'],
-    review: ['The source explicitly asks for review of API/MCP actions, Microsoft 365 grounding, and deployment assumptions. Confirm the intended agent type and supported integration path.'],
-  },
-  {
-    id: 'sdk', name: 'Microsoft 365 Agents SDK', shortName: 'M365 Agents SDK', category: 'Pro-code · Own your runtime',
-    summary: 'Bring your own models and orchestration.',
-    goodFor: 'A developer-owned runtime that can serve Microsoft 365, websites, and other channels.',
-    watch: ['You host and secure the solution.', 'The SDK does not supply an AI model or orchestration. Those remain your responsibility.'],
-    review: ['Verify channel-specific requirements and build the orchestration, autonomy, voice, or handover capabilities you need; these are not supplied merely by choosing the SDK.'],
-  },
-];
-
-export const prerequisiteTitle = 'What you need in place: prerequisites and next steps';
-export const prerequisiteNotice = 'These checks remain to be completed. They were not confirmed by your assessment answers.';
-export const prerequisites: Record<ProductId, string[]> = {
-  builder: [
-    'Confirm Microsoft 365 access, approved knowledge sources, connector availability, permissions, and sharing policies.',
-    'Validate answer quality, maker telemetry, and lifecycle requirements. Business-system writes or unprompted execution need another route.',
-  ],
-  cowork: [
-    'Confirm access to the required apps and centrally managed connectors, plugins, and skills, including permissions for business-system actions.',
-    'Validate scheduling or event-trigger availability if needed. The employee must direct the work; prescribed end-to-end processes need the organization-designed approach.',
-    'Set expectations for reviewing generated documents, outputs, and completed actions.',
-  ],
-  studio: [
-    'Define conversation behavior, process ownership, required steps, approvals, tools, knowledge, and integration permissions.',
-    'Confirm the required non-voice publishing channels. Voice and live-human handover require the Standard Harness in this guidance.',
-    'Pilot reasoning and document workloads, estimate consumption, and establish evaluations, ALM, monitoring, and controls for autonomous execution.',
-  ],
-  standard: [
-    'Validate the exact publishing, voice, speech/DTMF, and live-human handover integrations required.',
-    'Confirm support for complex reasoning, document processing, autonomous triggers, and execution behavior if the process needs them.',
-    'Review existing topics and integrations, configure evaluations and monitoring, and assess GitHub Copilot Harness for new agents without Standard-specific requirements.',
-  ],
-  toolkit: [
-    'Confirm the intended prompted, employee-facing Microsoft 365 Copilot agent type and current API/MCP integration, grounding, and tooling support.',
-    'Own API/MCP hosting, app registrations, scopes, permissions, authentication, integration testing, telemetry, and support.',
-    'Plan source control and deployment. Deterministic workflows require code or an external workflow service; unprompted execution is outside this option’s draft scope.',
-  ],
-  sdk: [
-    'Select and implement AI services, models, orchestration, hosting, security, and conversation handling.',
-    'Validate audience access and implement each required channel. Voice, human handover, and scheduling/event triggers are not supplied merely by choosing the SDK.',
-    'Own testing, evaluations, deployment, monitoring, support, compliance, and responsible AI. Confirm current roadmap constraints for the intended scenario.',
-  ],
-};
-
-export interface Choice {
-  id: string;
-  label: string;
-  detail: string;
-  disabledReason?: (answers: Answers) => string | undefined;
-}
 export interface Question {
-  id: QuestionId;
-  label: string;
-  title: string;
-  hint: string;
-  singleChoiceHint?: string;
-  multiple?: boolean;
-  choices: Choice[];
-  when?: (answers: Answers, candidates: readonly ProductId[]) => boolean;
+  id: QuestionId; title: string; hint: string; choices: Choice[]; multiple?: boolean;
+  help?: { title: string; text: string }; when: (a: Answers) => boolean;
 }
 
-export const has = (answers: Answers, key: QuestionId, value: string): boolean =>
-  answers[key]?.includes(value) ?? false;
+export type ImplementationKind = 'configuration' | 'developer' | 'unconfirmed';
 
-export const hasMultipleChannels = (answers: Answers): boolean =>
-  ['m365', 'web', 'voice'].filter(channel => has(answers, 'channels', channel)).length > 1;
+export type ExtensionRole = 'maker' | 'developer' | 'admin';
+
+export interface SolutionExtension {
+  name: string;
+  implementation: ImplementationKind;
+  developerCondition?: 'unsupported-operation';
+}
+
+export interface DocumentationLink { label: string; url: string }
+
+export interface ExtensibilityOption {
+  id: 'sdk' | 'agents' | 'actions' | 'packages';
+  name: string; description: string;
+  documentation: DocumentationLink[]; documentationNote?: string;
+  considerations?: string[];
+}
+
+export interface SolutionComposition {
+  authoringExperience: string; extendedBy: SolutionExtension[]; documentation: DocumentationLink[];
+  extensibilityOptions?: ExtensibilityOption[];
+  considerations: string[]; terminology?: string;
+}
+
+export interface SolutionOption extends SolutionComposition {
+  title: string; description: string; note?: string; consideration?: 'existing-standard';
+}
+
+export interface Recommendation extends SolutionComposition {
+  id: SolutionId; status: 'recommended' | 'review'; title: string; introduction: string;
+  guidance?: string; authentication?: string; coverageFallback?: string;
+  reasons: string[];
+  alternatives: string[]; excluded: string[];
+  options: SolutionOption[];
+}
+
+export const extensionRoles: Record<ImplementationKind, readonly ExtensionRole[]> = {
+  configuration: ['maker', 'admin'],
+  developer: ['developer', 'admin'],
+  unconfirmed: ['maker', 'admin'],
+};
+
+export const roleDetails: Record<ExtensionRole, { label: string; icon: string }> = {
+  maker: {
+    label: 'Maker',
+    icon: '<path d="M3 6h8m4 0h6M3 12h3m4 0h11M3 18h11m4 0h3"/><circle cx="13" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="18" r="2"/>',
+  },
+  developer: {
+    label: 'Developer',
+    icon: '<path d="m8 6-6 6 6 6m8-12 6 6-6 6m-2-15-4 18"/>',
+  },
+  admin: {
+    label: 'Admin',
+    icon: '<path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/><path d="m9 12 2 2 4-4"/>',
+  },
+};
+
+export const documentation = {
+  cowork: { label: 'Customize Cowork', url: 'https://learn.microsoft.com/en-us/copilot/cowork/cowork-customize' },
+  coworkDevelopment: { label: 'Build Cowork plugins', url: 'https://learn.microsoft.com/en-us/copilot/cowork/cowork-plugin-development' },
+  coworkAdministration: { label: 'Cowork plugin administration', url: 'https://learn.microsoft.com/en-us/copilot/cowork/cowork-manage-plugins' },
+  copilotAdministration: { label: 'Microsoft 365 agent administration', url: 'https://learn.microsoft.com/en-us/microsoft-agent-365/admin/manage-copilot-agents-integrated-apps' },
+  plugins: { label: 'Copilot plugins', url: 'https://learn.microsoft.com/en-us/microsoft-365/copilot/extensibility/plugins-overview' },
+  declarativeAgents: { label: 'Declarative agents and plugin packages', url: 'https://learn.microsoft.com/en-us/microsoft-365/copilot/extensibility/overview-declarative-agent' },
+  pluginRegistry: { label: 'Plugins naming and registry announcement', url: 'https://techcommunity.microsoft.com/blog/microsoft-copilot-blog/introducing-the-plugin-registry---one-place-to-discover-and-govern-plugins-for-m/4559682' },
+  actions: { label: 'Agent API/MCP actions', url: 'https://learn.microsoft.com/en-us/microsoft-365/copilot/extensibility/overview-plugins' },
+  wiqd: { label: 'Work IQ Dev Tools (preview)', url: 'https://microsoft.github.io/wiqd/' },
+  builder: { label: 'Agent Builder documentation', url: 'https://learn.microsoft.com/en-us/microsoft-365/copilot/extensibility/agent-builder' },
+  microsoftHarness: { label: 'Microsoft Copilot harness documentation', url: 'https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/overview' },
+  standardHarness: { label: 'Standard harness documentation', url: 'https://learn.microsoft.com/en-us/microsoft-copilot-studio/fundamentals-get-started' },
+  microsoftA2a: { label: 'A2A', url: 'https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/add-agent-to-agent' },
+  microsoftFoundry: { label: 'Foundry agents', url: 'https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/add-agent-foundry' },
+  standardA2a: { label: 'A2A', url: 'https://learn.microsoft.com/en-us/microsoft-copilot-studio/add-agent-agent-to-agent' },
+  standardFoundry: { label: 'Foundry agents', url: 'https://learn.microsoft.com/en-us/microsoft-copilot-studio/add-agent-foundry-agent' },
+  studioAdministration: { label: 'Copilot Studio security and governance', url: 'https://learn.microsoft.com/en-us/microsoft-copilot-studio/security-and-governance' },
+  sdk: { label: 'M365 Agents SDK overview', url: 'https://learn.microsoft.com/en-us/microsoft-365/agents-sdk/agents-sdk-overview' },
+  studioMcp: { label: 'Copilot Studio MCP tools', url: 'https://learn.microsoft.com/en-us/microsoft-copilot-studio/agent-extend-action-mcp' },
+  sdkIntegration: { label: 'Copilot Studio SDK integration', url: 'https://learn.microsoft.com/en-us/microsoft-365/agents-sdk/integrate-with-mcs' },
+  coworkLicensing: { label: 'Cowork licensing', url: 'https://learn.microsoft.com/en-us/copilot/cowork/cowork-manage-plugins#prerequisites' },
+  builderLicensing: { label: 'Agent Builder licensing', url: 'https://learn.microsoft.com/en-us/microsoft-365/copilot/extensibility/agent-builder#licensing' },
+  copilotLicensing: { label: 'Microsoft 365 Copilot extensibility licensing', url: 'https://learn.microsoft.com/en-us/microsoft-365/copilot/extensibility/cost-considerations' },
+  microsoftLicensing: { label: 'Microsoft Copilot harness licensing and billing', url: 'https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/billing-credit-overview' },
+  standardLicensing: { label: 'Standard harness licensing', url: 'https://learn.microsoft.com/en-us/microsoft-copilot-studio/billing-licensing' },
+  upgrade: { label: 'Copilot Studio plugin upgrade guidance', url: 'https://github.com/microsoft/copilot-studio-plugin/blob/main/commands/migrate.md' },
+  studioAuthoring: { label: 'Create and test in Copilot Studio', url: 'https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/authoring-first-bot' },
+  studioPlugin: { label: 'Code-based authoring with the Copilot Studio plugin', url: 'https://github.com/microsoft/copilot-studio-plugin' },
+} satisfies Record<string, DocumentationLink>;
+
+export const coworkAuthoring = 'Cowork Customize for configuration; optional Work IQ Dev Tools (preview) for custom plugin packages.';
+
+export const microsoftAuthoring = 'Create and test in Copilot Studio. Other authoring surfaces: Cowork or coding agents (GitHub Copilot CLI or GitHub Copilot app).';
+
+export const declarativeAgentTerminology = 'Copilot is replacing the Agents page with Plugins. Declarative agents remain the conversational component; a plugin can package an agent with skills and integrations. Standalone agents remain supported.';
+
+export const experienceTitles = {
+  copilot: 'Microsoft 365 Copilot declarative agent',
+  microsoft: 'Copilot Studio agent with the Microsoft Copilot harness',
+  standard: 'Copilot Studio agent with the Standard harness',
+};
+
+export const has = (a: Answers, id: QuestionId, value: string): boolean => a[id]?.includes(value) ?? false;
+
+export const employee = (a: Answers): boolean => has(a, 'direction', 'employee');
+
+export const organization = (a: Answers): boolean => has(a, 'direction', 'organization');
+
+export const m365Experience = (a: Answers): boolean => has(a, 'audience', 'employees-m365');
+
+export const studioAudience = (a: Answers): boolean => has(a, 'audience', 'employees-web') || has(a, 'audience', 'customers-web');
 
 export const questions: Question[] = [
   {
-    id: 'approach', label: 'Approach', title: 'Which approach does your scenario require?',
-    hint: 'Choose how the work will be directed and delivered. Each approach narrows the assessment to two currently covered platforms.',
-    choices: approaches.map(({ id, label, detail }) => ({ id, label, detail })),
-  },
-  {
-    id: 'job', label: 'The job', title: 'What does the agent need to do?',
-    hint: 'Select all that apply. The platform needs to support the combined requirements of the work.',
-    when: a => has(a, 'approach', 'employee'),
-    multiple: true,
+    id: 'audience', title: 'Who will use the agent, and where?',
+    hint: 'Choose the audience and experience for this use case.',
+    when: () => true,
     choices: [
-      { id: 'knowledge', label: 'Answer questions or guide people in Microsoft 365', detail: 'Answer employees’ policy questions or explain process steps using Microsoft 365 content. Also select business-system actions if the agent must carry out those steps.' },
-      { id: 'actions', label: 'Take action in business systems', detail: 'Carry out process steps, such as creating onboarding tasks, updating employee or CRM records, and routing approvals.' },
-      { id: 'reasoning', label: 'Work through a complex business task', detail: 'Combine reasoning, tools, and document processing, such as investigating invoice discrepancies or reviewing contracts.' },
+      { id: 'employees-m365', label: 'Employees in Microsoft 365', description: 'An employee experience in the Microsoft 365 Copilot workspace.' },
+      { id: 'employees-web', label: 'Employees across a website or custom app and Microsoft 365 Copilot or Teams', description: 'The same agent must work on an internal, authenticated website or custom app, plus Microsoft 365 Copilot, Teams, or both.' },
+      { id: 'customers-web', label: 'Customers on a website or in a custom app', description: 'A customer-facing conversation embedded in a website, web app, or mobile app.' },
+      { id: 'customers-voice', label: 'Customers using voice or telephony', description: 'A customer-facing voice conversation, including telephone-based services.', disabledReason: () => 'Not covered by this wizard. More guidance coming soon.' },
     ],
   },
   {
-    id: 'audience', label: 'Audience', title: 'Who will use it?',
-    hint: 'Identify everyone who needs access so the available delivery options match the audience.',
-    when: a => has(a, 'approach', 'automation'),
+    id: 'direction', title: 'Who directs the work?',
+    hint: 'Think about one use case. Who decides the outcome and the steps to take?',
+    when: a => m365Experience(a),
     choices: [
-      { id: 'employees', label: 'Employees', detail: 'People inside your organization, using Microsoft 365 or an internal app.' },
-      { id: 'customers', label: 'Customers', detail: 'Customers or other external users, such as visitors to a public website.' },
-      { id: 'both', label: 'Employees and customers', detail: 'One solution serving internal and external users, with suitable access for each.' },
+      { id: 'employee', label: 'The person using the agent guides the task', description: 'The person directs the task using approved knowledge and capabilities. This can include reading or updating CRM records.' },
+      { id: 'organization', label: 'The organization defines the process', description: 'The solution must follow defined steps, controls, and responsibilities, with room for the agent to adapt.' },
     ],
+    help: { title: 'How do I distinguish these?', text: 'A person can ask an agent to retrieve information or carry out a permitted operation through approved integrations, while directing the task and its execution. In an organization-designed process, the solution defines the required steps, checks, and responsibilities. Both patterns can read and write systems of record, subject to permissions and approval policies. The distinction is who directs the work. If your project includes both, consider one part at a time.' },
   },
   {
-    id: 'architecture', label: 'Development model', title: 'Which development model do you need?',
-    hint: 'Choose the scope your team must implement and operate. Review the responsibilities and remaining checks in the result.',
-    when: a => has(a, 'approach', 'custom'),
+    id: 'job', title: 'What does the agent need to do?',
+    hint: 'Select all that apply. The recommended solution must support the combined requirements.',
+    when: a => employee(a), multiple: true,
     choices: [
-      { id: 'managed', label: 'A Microsoft 365 Copilot agent with developer-owned integrations', detail: 'Prompted, employee-facing work using Microsoft 365 Copilot models and orchestration. Developers own instructions, API/MCP integrations, testing, and deployment.' },
-      { id: 'own', label: 'An agent with a developer-owned runtime', detail: 'Choose and operate your models and orchestration, or build one backend for Microsoft 365 and other channels. Your team owns hosting and security.' },
+      { id: 'knowledge', label: 'Answer questions or provide guidance', description: 'Use approved content to explain policies, procedures, or information. Select business-system actions too for live business-record lookups or changes.' },
+      { id: 'actions', label: 'Take action in business systems', description: 'Use an integration to look up, create or update business records in systems such as CRM, ERP or HR.' },
+      { id: 'complex', label: 'Coordinate complex work across apps and documents', description: 'Gather information, compare documents, and produce or edit content across apps. Select business-system actions too for live business-record lookups or updates.' },
     ],
+    help: { title: 'How do I describe a combined task?', text: 'For a renewal briefing that gathers email and contract context and updates CRM, select cross-app work and business-system actions. Select questions or guidance as well only if answering questions is a separate requirement. Explaining onboarding policies is guidance; checking an approval or creating an onboarding record requires business-system actions. You do not need to choose an implementation tool here.' },
   },
   {
-    id: 'channels', label: 'Channels', title: 'Where does it need to work?',
-    hint: 'Select every required channel and service capability. Confirm channel support and admin approvals, including voice and live-human handover.',
-    when: a => has(a, 'approach', 'automation'),
-    multiple: true,
+    id: 'complexity', title: 'Which type of use case best describes the agent?',
+    hint: 'If the use case includes both, choose multi-step work across tools and documents.',
+    when: a => organization(a) || studioAudience(a),
     choices: [
-      {
-        id: 'm365', label: 'Microsoft 365 workspace', detail: 'Microsoft 365 Copilot or Teams. Check support for the specific app and interaction.',
-        disabledReason: a => has(a, 'audience', 'customers') || has(a, 'audience', 'both')
-          ? 'Choose "Employees" in "Who will use it?" to enable this channel.' : undefined,
-      },
-      { id: 'web', label: 'A website or custom app', detail: 'Embed an agent in your own website or client for customers or employees.' },
-      { id: 'voice', label: 'Voice', detail: 'People speak to the agent. Requires Copilot Studio Standard Harness; confirm speech and any telephone keypad requirements.' },
-      { id: 'handover', label: 'Handover to a live human', detail: 'Transfer the conversation to a human service agent. Requires Copilot Studio Standard Harness.' },
-    ],
-  },
-  {
-    id: 'autonomy', label: 'Autonomy', title: 'Does it need to act without a prompt?',
-    hint: 'Consider schedules and event triggers for the employee’s work. Availability still needs confirmation in your environment.',
-    when: (a, candidates) => has(a, 'approach', 'employee') && !!a.job?.length && candidates.includes('builder'),
-    choices: [
-      { id: 'prompted', label: 'No, only when someone asks', detail: 'Every task starts with a person’s prompt. Unprompted execution is not required.' },
-      { id: 'personal', label: 'Yes, on a schedule or when an event occurs', detail: 'Start tasks automatically rather than waiting for a prompt. Confirm the required trigger is available.' },
+      { id: 'complex', label: 'Multi-step work across tools and documents', description: 'Gather information from several tools, plan the next steps, and produce or edit documents as the task progresses.' },
+      { id: 'routine', label: 'Question answering or defined business actions', description: 'Answer questions, retrieve information, or complete defined operations such as checking a record or submitting a request.' },
     ],
   },
 ];
+
+export function customExtensibility(harness: 'microsoft' | 'standard'): ExtensibilityOption[] {
+  return [{
+    id: 'sdk', name: 'M365 Agents SDK',
+    description: 'Build custom handover patterns, custom orchestration using your own model, or additional integrations.',
+    documentation: [documentation.sdk],
+    documentationNote: harness === 'microsoft' ? 'Custom handover pattern coming soon.' : undefined,
+    considerations: [
+      "Use Copilot Studio's built-in publishing options when they meet your needs. For SDK extensions, your team maintains the custom code and any services it hosts.",
+      'If you build orchestration using your own model, your team also operates and evaluates those components and owns their compliance and responsible AI.',
+    ],
+  }, {
+    id: 'agents', name: 'Agent connections',
+    description: 'Connect to A2A-compatible agents or Foundry agents.',
+    documentation: harness === 'microsoft'
+      ? [documentation.microsoftA2a, documentation.microsoftFoundry]
+      : [documentation.standardA2a, documentation.standardFoundry],
+  }];
+}
